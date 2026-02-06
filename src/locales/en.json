@@ -1,0 +1,98 @@
+{
+    "nav": {
+        "overview": "Overview",
+        "dashboards": "Dashboards",
+        "indicators": "Indicators",
+        "market_cycle": "Market Cycle",
+        "market_map": "Market Map",
+        "correlation": "Correlation Lab",
+        "data_ingestion": "Data Lab",
+        "ai_report": "AI Report",
+        "settings": "Settings"
+    },
+    "header": {
+        "subtitle": "Real-time market intelligence dashboard",
+        "sync_data": "Sync Data",
+        "syncing": "Syncing..."
+    },
+    "overview": {
+        "model_version": "Model: V4.1",
+        "live_data": "Live Data",
+        "risk_drivers": "Critical Risk Drivers",
+        "how_it_works": "How it works",
+        "view_full_analysis": "View Full Analysis",
+        "no_signals": "No active risk signals detected",
+        "calculating": "Calculating...",
+        "default_summary": "System is aggregating real-time indicators to determine current market risk posture.",
+        "historical_risk": "Historical Market Risk Score",
+        "valuation_momentum": "Valuation vs Momentum"
+    },
+    "status": {
+        "risk_on_low": "Risk On (Low Caution)",
+        "risk_on_medium": "Risk On (Moderate)",
+        "risk_on_aggressive": "Risk On (Aggressive)",
+        "caution": "Caution (Neutral)",
+        "risk_off": "Risk Off (Defensive)",
+        "extreme_fear": "Extreme Fear"
+    },
+    "summary": {
+        "risk_on_aggressive_yield_curve": "Market conditions are highly favorable. Yield curve is healthy, supporting aggressive growth strategies.",
+        "risk_on_aggressive_vix": "Volatility is extremely low. Market sentiment supports risk-on positioning.",
+        "risk_on_aggressive_buffett_indicator": "Valuations are reasonable. Consider increasing equity exposure.",
+        "risk_on_aggressive_sp_500_momentum": "Strong upward momentum confirmed. Trend-following strategies are effective.",
+        "risk_on_aggressive_default": "All indicators point to favorable conditions. Aggressive positioning recommended.",
+        "risk_on_medium_yield_curve": "Yield curve is normalizing. Moderate risk appetite is appropriate.",
+        "risk_on_medium_vix": "Volatility is contained. Balanced portfolio approach is sensible.",
+        "risk_on_medium_buffett_indicator": "Valuations are elevated but not extreme. Selective opportunities exist.",
+        "risk_on_medium_sp_500_momentum": "Momentum is positive but slowing. Stay invested with caution.",
+        "risk_on_medium_default": "Market conditions are stable. Maintain diversified allocation.",
+        "caution_yield_curve": "Yield curve is flattening. Prepare for potential market shift.",
+        "caution_vix": "Volatility is rising. Consider reducing risk exposure.",
+        "caution_buffett_indicator": "Valuations are stretched. Be selective with new investments.",
+        "caution_sp_500_momentum": "Momentum is weakening. Watch for trend reversals.",
+        "caution_default": "Mixed signals detected. Hedging strategies may be prudent.",
+        "risk_off_yield_curve": "Yield curve inversion detected. Recession risk is elevated.",
+        "risk_off_vix": "High volatility indicates market stress. Defensive positioning advised.",
+        "risk_off_buffett_indicator": "Extreme overvaluation detected. Capital preservation is priority.",
+        "risk_off_sp_500_momentum": "Price is below 200-day average. Bear market conditions possible.",
+        "risk_off_default": "Multiple risk indicators are elevated. Shift to defensive assets."
+    },
+    "drivers": {
+        "yield_curve": "Yield Curve",
+        "yield_curve_10y2y": "Yield Curve (10Y-2Y)",
+        "vix": "VIX",
+        "vix_fear_index": "VIX (Fear Index)",
+        "buffett_indicator": "Buffett Indicator",
+        "sp_500_momentum": "S&P 500 Momentum",
+        "unknown": "Unknown Factors"
+    },
+    "stats": {
+        "buffett_indicator": "Buffett Indicator",
+        "yield_curve": "Yield Curve",
+        "vix": "VIX Fear Index",
+        "spx_momentum": "SPX vs 200MA",
+        "valuation": "Valuation",
+        "spread": "Spread",
+        "volatility": "Volatility",
+        "trend": "Trend"
+    },
+    "signals": {
+        "bullish": "Bullish",
+        "bearish": "Bearish",
+        "neutral": "Neutral",
+        "unknown": "Unknown"
+    },
+    "methodology": {
+        "title": "Risk Model V4.1"
+    },
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "no_data": "No Data"
+    },
+    "settings": {
+        "language": "Language",
+        "english": "English",
+        "korean": "한국어"
+    }
+}

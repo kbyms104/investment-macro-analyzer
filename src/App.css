@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* LIGHT MODE (Default) - Clean White/Slate */
+    --background: 210 40% 98%;
+    /* Slate 50 */
+    --foreground: 222.2 84% 4.9%;
+    /* Slate 950 */
+
+    --card: 0 0% 100%;
+    /* White */
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 221.2 83.2% 53.3%;
+    /* Blue 600 */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    /* Slate 100 */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    /* Slate 100 */
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    /* Slate 100 */
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    /* Slate 200 */
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* DARK MODE - Pure Black / Zinc (No Navy/Blue tint) */
+    --background: 0 0% 0%;
+    /* #000000 */
+    --foreground: 0 0% 98%;
+    /* #FAFAFA */
+
+    --card: 240 10% 3.9%;
+    /* Zinc 950 #09090b - Subtle distinction from bg */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 217.2 91.2% 59.8%;
+    /* Blue 500 - Kept for brand identity */
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 240 3.7% 15.9%;
+    /* Zinc 800 */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    /* Zinc 800 */
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 240 3.7% 15.9%;
+    /* Zinc 800 */
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    /* Zinc 800 */
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+}
+
+@layer utilities {
+
+  /* Adaptive Glass Panel - Dark mode uses pure black with high transparency */
+  .glass-panel {
+    @apply bg-white/70 dark:bg-black/60 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-sm dark:shadow-xl;
+  }
+
+  .glass-panel-hover {
+    @apply hover:bg-white/80 dark:hover:bg-zinc-900/60 transition-all duration-300 hover:shadow-md dark:hover:shadow-2xl hover:scale-[1.01];
+  }
+
+  .text-glow {
+    @apply dark:drop-shadow-[0_0_15px_rgba(59, 130, 246, 0.5)];
+  }
+
+  /* Modern Invisible-ish Scrollbar */
+  /* Target any element with .scrollbar-thin class */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+    /* Totally transparent track */
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/10 rounded-full transition-colors duration-300;
+    /* Extremely subtle by default */
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+    /* Visible on hover */
+  }
+
+  /* Firefox Support */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.1) transparent;
+  }
+
+  /* Nivo Chart Tooltip - Ensure visibility and prevent clipping */
+  div[style*="pointer-events: none"][style*="position: absolute"] {
+    z-index: 9999 !important;
+  }
+}
