@@ -38,7 +38,7 @@ async fn calculate_indicator(pool: State<'_, SqlitePool>, api_key: String, slug:
         core::rate_limiter::RateLimiter::wait(source_str).await;
     }
 
-    core::orchestrator::calculate_and_save(&pool, &api_key, &slug, backfill).await
+    core::orchestrator::calculate_and_save(&pool, &api_key, &slug, backfill, true).await
 }
 
 #[tauri::command]
@@ -73,6 +73,20 @@ async fn save_tiingo_api_key(pool: State<'_, SqlitePool>, api_key: String) -> Re
 #[tauri::command]
 async fn get_tiingo_api_key(pool: State<'_, SqlitePool>) -> Result<String, String> {
     db::get_setting(&pool, "TIINGO_API_KEY")
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn save_provider_api_key(pool: State<'_, SqlitePool>, provider: String, key: String) -> Result<(), String> {
+    db::save_api_key_v2(&pool, &provider, &key)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_provider_api_key(pool: State<'_, SqlitePool>, provider: String) -> Result<String, String> {
+    db::get_api_key_v2(&pool, &provider)
         .await
         .map_err(|e| e.to_string())
 }
@@ -156,37 +170,20 @@ struct SyncProgress {
 
 #[tauri::command]
 async fn sync_all_history(pool: State<'_, SqlitePool>, api_key: String, app_handle: tauri::AppHandle) -> Result<String, String> {
-    use tauri::Emitter;
+    
+    // Phase 1: Sync Base Indicators
+    // This fetches data from FRED, Yahoo, Tiingo, Binance, etc.
+    let (base_success, base_fail) = core::orchestrator::batch_sync_base_indicators(&pool, &api_key, Some(&app_handle)).await;
+    
+    // Phase 2: Calculate Derived Indicators
+    // This uses the data fetched in Phase 1 to compute Yield Curves, Buffett Indicator, etc.
+    // Crucially, it does NOT fetch data again (fetch_deps=false), preventing rate limits and redundancy.
+    let (calc_success, calc_fail) = core::orchestrator::batch_calculate_derived_indicators(&pool, &api_key, Some(&app_handle)).await;
 
-    let indicators = crate::indicators::registry::Registry::get_available_indicators();
-    let total = indicators.len();
-    let mut success_count = 0;
+    let total_success = base_success + calc_success;
+    let total_fail = base_fail + calc_fail;
 
-    println!("Starting Full History Sync for {} indicators...", total);
-
-    for (idx, ind) in indicators.iter().enumerate() {
-        // Emit Progress
-        let _ = app_handle.emit("sync-progress", SyncProgress {
-            current: idx + 1,
-            total,
-            slug: ind.slug.clone(),
-            status: "fetching".to_string()
-        });
-
-        // Add a small delay to be kind to APIs (even with rate limiter)
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-        match calculate_indicator(pool.clone(), api_key.clone(), ind.slug.clone(), true).await {
-            Ok(_) => {
-                success_count += 1;
-            },
-            Err(e) => {
-                println!("Failed to backfill {}: {}", ind.slug, e);
-            }
-        }
-    }
-
-    Ok(format!("Synced {}/{} indicators", success_count, total))
+    Ok(format!("Synced {} indicators ({} failed)", total_success, total_fail))
 }
 
 #[tauri::command]
@@ -412,6 +409,8 @@ pub fn run() {
             get_api_key,
             save_tiingo_api_key,
             get_tiingo_api_key,
+            save_provider_api_key,
+            get_provider_api_key,
             get_indicator_history,
             // search_yahoo_symbol,
             get_indicators_list,

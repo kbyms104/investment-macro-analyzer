@@ -50,7 +50,7 @@ export function DataLabView() {
             const indicators = await invoke<any[]>("get_indicators_list");
 
             // 2. Group by Source
-            const sources = ["FRED", "Tiingo", "Yahoo", "Binance", "Alternative", "Calculated"];
+            const sources = ["FRED", "Tiingo", "Yahoo", "Binance", "WorldBank", "EIA", "Alternative", "Calculated"];
             const newStatuses: SystemStatus[] = sources.map(source => {
                 // Case insensitive match and fallback for source string variance (Map Yahoo -> Tiingo)
                 const items = indicators.filter(i => {
@@ -168,40 +168,13 @@ export function DataLabView() {
 
                 try {
                     const apiKey: string = await invoke("get_api_key");
-                    const indicators: any[] = await invoke("get_indicators_list");
-                    // Filter out internal calculated ones or manual
-                    const targets = indicators.filter(i => i.source !== 'Manual' && i.source !== 'Calculated');
 
-                    addLog('info', 'System', `Queueing ${targets.length} indicators for historical retrieval...`);
+                    // Use the unified sync command (Two-Phase Sync)
+                    // Phase 1: Fetch Base Data
+                    // Phase 2: Calculate Derived Indicators
+                    const result = await invoke<string>("sync_all_history", { apiKey });
 
-                    // Concurrency Control: Process in chunks of 3
-                    const CHUNK_SIZE = 3;
-                    let processed = 0;
-                    let failures = 0;
-
-                    for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
-                        const chunk = targets.slice(i, i + CHUNK_SIZE);
-
-                        await Promise.all(chunk.map(async (ind) => {
-                            try {
-                                await invoke("calculate_indicator", { apiKey, slug: ind.slug, backfill: true });
-                            } catch (e) {
-                                failures++;
-                                addLog('warn', ind.source, `Backfill failed for ${ind.slug}: ${e}`);
-                            }
-                        }));
-
-                        processed += chunk.length;
-
-                        if (processed % 10 === 0 || processed === targets.length) {
-                            addLog('info', 'System', `Progress: ${processed}/${targets.length} indicators processed...`);
-                        }
-
-                        // Rate Limit Pause (Safe 500ms)
-                        await new Promise(r => setTimeout(r, 500));
-                    }
-
-                    addLog('success', 'System', `✨ DEEP BACKFILL COMPLETE. Success: ${targets.length - failures}, Failures: ${failures}`);
+                    addLog('success', 'System', `✨ DEEP BACKFILL COMPLETE: ${result}`);
                     refreshStatus();
 
                 } catch (e) {

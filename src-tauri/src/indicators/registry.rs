@@ -27,6 +27,8 @@ pub enum SourceType {
     // Upbit,
     Binance,
     Glassnode,
+    WorldBank, // New
+    Eia,       // New
     Alternative, // alternative.me, etc.
     Manual,      // User-entered data
     Calculated,
@@ -411,6 +413,32 @@ static INDICATORS: Lazy<Vec<IndicatorMetadata>> = Lazy::new(|| {
              "Retail position ratio. Contrarian signal", Some("BTCUSDT_LS"), UnitType::Ratio, Some("https://www.binance.com/en/trade/BTC_USDT"), Some("Daily")),
 
         // =====================================================================
+        // WORLD BANK - GLOBAL MACRO (글로벌 매크로)
+        // =====================================================================
+        ind!("global_gdp_growth", "Global GDP Growth", SourceType::WorldBank, Category::Global,
+             "Annual percentage growth rate of GDP at market prices based on constant local currency", Some("NY.GDP.MKTP.KD.ZG"), UnitType::Percent, Some("https://data.worldbank.org/indicator/NY.GDP.MKTP.KD.ZG"), Some("Yearly")),
+        ind!("global_inflation", "Global Inflation", SourceType::WorldBank, Category::Global,
+             "Inflation, consumer prices (annual %)", Some("FP.CPI.TOTL.ZG"), UnitType::Percent, Some("https://data.worldbank.org/indicator/FP.CPI.TOTL.ZG"), Some("Yearly")),
+        ind!("world_debt_to_gdp", "Global Debt-to-GDP", SourceType::WorldBank, Category::Global,
+             "Central government debt, total (% of GDP)", Some("GC.DOD.TOTL.GD.ZS"), UnitType::Percent, Some("https://data.worldbank.org/indicator/GC.DOD.TOTL.GD.ZS"), Some("Yearly")),
+        ind!("world_real_interest_rate", "Global Real Interest Rate", SourceType::WorldBank, Category::Global,
+             "Real interest rate (%)", Some("FR.INR.RINR"), UnitType::Percent, Some("https://data.worldbank.org/indicator/FR.INR.RINR"), Some("Yearly")),
+
+        // =====================================================================
+        // EIA - ENERGY (에너지)
+        // =====================================================================
+        ind!("crude_oil_stocks", "US Crude Oil Stocks", SourceType::Eia, Category::Commodities,
+             "Weekly Ending Stocks of Crude Oil (Excluding SPR)", Some("W_EPC0_SAX_YCU_MBBL"), UnitType::Millions, Some("https://www.eia.gov/petroleum/supply/weekly/"), Some("Weekly")),
+        ind!("natural_gas_storage", "Natural Gas Storage", SourceType::Eia, Category::Commodities,
+             "Weekly Working Gas in Underground Storage", Some("NG.NW2_EPG0_SWO_R48_BCF.W"), UnitType::Billions, Some("https://ir.eia.gov/ngs/ngs.html"), Some("Weekly")),
+        ind!("gasoline_stocks", "US Gasoline Stocks", SourceType::Eia, Category::Commodities,
+             "Weekly Ending Stocks of Total Gasoline", Some("WGT_EPC0_R5301_YCU_MBBL"), UnitType::Millions, Some("https://www.eia.gov/petroleum/supply/weekly/"), Some("Weekly")),
+        ind!("refinery_utilization", "Refinery Utilization", SourceType::Eia, Category::Commodities,
+             "Weekly U.S. Percent Utilization of Refinery Operable Capacity", Some("W_EPUF_EER_SAX_YCU_PCT"), UnitType::Percent, Some("https://www.eia.gov/petroleum/supply/weekly/"), Some("Weekly")),
+
+
+
+        // =====================================================================
         // ALTERNATIVE DATA (대안 데이터)
         // =====================================================================
         ind!("fear_greed_index", "Fear & Greed Index", SourceType::Alternative, Category::Risk,
@@ -569,6 +597,8 @@ impl Registry {
             tiingo: by_source(SourceType::Tiingo),
             // upbit: by_source(SourceType::Upbit),
             binance: by_source(SourceType::Binance),
+            worldbank: by_source(SourceType::WorldBank),
+            eia: by_source(SourceType::Eia),
             calculated: by_source(SourceType::Calculated),
             alternative: by_source(SourceType::Alternative),
             manual: by_source(SourceType::Manual),
@@ -585,6 +615,8 @@ pub struct RegistryStats {
     pub tiingo: usize,
     // pub upbit: usize,
     pub binance: usize,
+    pub worldbank: usize,
+    pub eia: usize,
     pub calculated: usize,
     pub alternative: usize,
     pub manual: usize,

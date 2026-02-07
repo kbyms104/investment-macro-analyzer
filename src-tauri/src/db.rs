@@ -186,6 +186,36 @@ pub async fn get_setting(pool: &SqlitePool, key: &str) -> Result<String> {
     }
 }
 
+pub async fn save_api_key_v2(pool: &SqlitePool, provider: &str, key: &str) -> Result<()> {
+    // 1. Ensure api_keys table exists (it should via migration, but just in case)
+    // 2. Upsert
+    
+    // We use the `api_keys` table created in migration 20260207000002
+    sqlx::query(
+        "INSERT INTO api_keys (provider, key) VALUES ($1, $2)
+         ON CONFLICT (provider) DO UPDATE SET key = EXCLUDED.key, updated_at = CURRENT_TIMESTAMP"
+    )
+    .bind(provider)
+    .bind(key)
+    .execute(pool)
+    .await?;
+    
+    Ok(())
+}
+
+pub async fn get_api_key_v2(pool: &SqlitePool, provider: &str) -> Result<String> {
+    use sqlx::Row;
+    let row = sqlx::query("SELECT key FROM api_keys WHERE provider = $1")
+        .bind(provider)
+        .fetch_optional(pool)
+        .await?;
+    
+    match row {
+        Some(record) => Ok(record.try_get("key").unwrap_or_default()),
+        None => Ok("".to_string())
+    }
+}
+
 // Time Machine Query: Get value of all indicators at a specific timestamp
 pub async fn get_history_snapshot(pool: &SqlitePool, target_date: chrono::NaiveDateTime) -> Result<Vec<(String, f64, String)>> {
     // Select the latest value on or before the target_date for EACH indicator
@@ -265,9 +295,16 @@ pub async fn seed_fng_history(pool: &SqlitePool) -> Result<usize> {
         }
     }
 
-    // 2. Recent Data
-    let recent_csv = include_str!("data/fng_recent.csv");
-    for line in recent_csv.lines() {
+    // 2. Recent Data (Try Runtime Load first, then Embedded)
+    let runtime_path = Path::new("../docs/fng_recent.csv");
+    let recent_csv_content = if runtime_path.exists() {
+        println!("Loading FNG Recent Data from local file: {:?}", runtime_path);
+        std::fs::read_to_string(runtime_path).unwrap_or_else(|_| include_str!("data/fng_recent.csv").to_string())
+    } else {
+        include_str!("data/fng_recent.csv").to_string()
+    };
+
+    for line in recent_csv_content.lines() {
         if line.starts_with("Date") { continue; }
         let parts: Vec<&str> = line.split(',').collect();
         if parts.len() < 2 { continue; }

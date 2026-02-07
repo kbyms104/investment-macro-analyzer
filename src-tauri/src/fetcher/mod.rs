@@ -5,13 +5,15 @@ use crate::models::DataPoint;
 pub mod fred;
 pub mod yahoo;
 pub mod tiingo;
-// pub mod upbit; // Removed as part of Crypto Cleanup
-pub mod binance;
-pub mod alternative;
 pub mod cnn;
+// pub mod upbit; // Disabled for now
+pub mod binance;
+pub mod worldbank; // New
+pub mod eia; // New
+pub mod alternative;
 
 #[async_trait]
-pub trait DataSource {
+pub trait DataSource: Send + Sync {
     fn name(&self) -> &str;
-    async fn fetch_data(&self, symbol: &str) -> Result<Vec<DataPoint>>;
+    async fn fetch_data(&self, series_id: &str) -> Result<Vec<DataPoint>>;
 }

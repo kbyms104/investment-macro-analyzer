@@ -26,6 +26,8 @@ interface LLMSettings {
 export function SettingsView() {
     const [apiKey, setApiKey] = useState("");
     const [tiingoApiKey, setTiingoApiKey] = useState("");
+    const [finnhubApiKey, setFinnhubApiKey] = useState("");
+    const [eiaApiKey, setEiaApiKey] = useState("");
     const [isSyncing, setIsSyncing] = useState(false);
     const [progress, setProgress] = useState<SyncProgress | null>(null);
     const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -78,6 +80,21 @@ export function SettingsView() {
                 if (typeof key === 'string') setTiingoApiKey(key);
             })
             .catch(console.error);
+
+        // Load Finnhub API Key
+        invoke("get_provider_api_key", { provider: "FINNHUB" })
+            .then((key) => {
+                if (typeof key === 'string') setFinnhubApiKey(key);
+            })
+            .catch(console.error);
+
+        // Load EIA API Key
+        invoke("get_provider_api_key", { provider: "EIA" })
+            .then((key) => {
+                if (typeof key === 'string') setEiaApiKey(key);
+            })
+            .catch(console.error);
+
 
         // Load Tiingo Usage
         invoke<[number, number]>("get_tiingo_usage")
@@ -138,6 +155,15 @@ export function SettingsView() {
             showAlert("Success", "Tiingo API Key saved successfully!", "success");
         } catch (e) {
             showAlert("Error", "Failed to save Tiingo API Key: " + e, "danger");
+        }
+    };
+
+    const saveProviderKey = async (provider: string, key: string) => {
+        try {
+            await invoke("save_provider_api_key", { provider, key });
+            showAlert("Success", `${provider} API Key saved successfully!`, "success");
+        } catch (e) {
+            showAlert("Error", `Failed to save ${provider} API Key: ` + e, "danger");
         }
     };
 
@@ -203,7 +229,7 @@ export function SettingsView() {
                             </button>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                            Used for fetching US Macro data (GDP, Inflation, Yields).
+                            Used for fetching US Macro data (GDP, Inflation, Yields). Get a free key at <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">fred.stlouisfed.org</a>
                         </p>
                     </div>
                     <div>
@@ -266,6 +292,54 @@ export function SettingsView() {
                             </div>
                         )}
                     </div>
+
+
+                    {/* Finnhub */}
+                    <div>
+                        <label className="text-sm font-semibold block mb-1">Finnhub API Key (Required for Sentiment)</label>
+                        <div className="flex gap-3">
+                            <input
+                                type="password"
+                                value={finnhubApiKey}
+                                onChange={(e) => setFinnhubApiKey(e.target.value)}
+                                className="flex-1 bg-background/50 border border-border rounded-lg px-4 py-2"
+                                placeholder="sk_..."
+                            />
+                            <button
+                                onClick={() => saveProviderKey("FINNHUB", finnhubApiKey)}
+                                className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-lg hover:bg-primary/90 transition-colors"
+                            >
+                                Save
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Used for Market Sentiment, News, and Economic Calendar. Get free key at <a href="https://finnhub.io" target="_blank" className="text-primary hover:underline">finnhub.io</a>
+                        </p>
+                    </div>
+
+                    {/* EIA */}
+                    <div>
+                        <label className="text-sm font-semibold block mb-1">EIA API Key (Required for Energy)</label>
+                        <div className="flex gap-3">
+                            <input
+                                type="password"
+                                value={eiaApiKey}
+                                onChange={(e) => setEiaApiKey(e.target.value)}
+                                className="flex-1 bg-background/50 border border-border rounded-lg px-4 py-2"
+                                placeholder="your_eia_key..."
+                            />
+                            <button
+                                onClick={() => saveProviderKey("EIA", eiaApiKey)}
+                                className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-lg hover:bg-primary/90 transition-colors"
+                            >
+                                Save
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Used for Crude Oil, Natural Gas, and Energy data. Get free key at <a href="https://www.eia.gov/opendata" target="_blank" className="text-primary hover:underline">eia.gov</a>
+                        </p>
+                    </div>
+
 
                     {/* Yahoo Finance */}
                     <div>
@@ -345,6 +419,9 @@ export function SettingsView() {
                                     className="w-full bg-background/50 border border-border rounded-lg px-4 py-2"
                                     placeholder="sk-..."
                                 />
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    Get your API key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">platform.openai.com</a>
+                                </p>
                             </div>
                             <div>
                                 <label className="text-sm font-semibold block mb-1">Model</label>
@@ -490,7 +567,7 @@ export function SettingsView() {
                     {isSyncing && progress && (
                         <div className="space-y-2 animate-in fade-in">
                             <div className="flex justify-between text-xs font-mono text-muted-foreground">
-                                <span>Processing: {progress.slug}</span>
+                                <span>Processing: {progress.status === 'fetching' ? '📥 Fetching' : '🧮 Calculating'}: {progress.slug}</span>
                                 <span>{progress.current} / {progress.total}</span>
                             </div>
                             <div className="h-2 w-full bg-muted rounded-full overflow-hidden">

@@ -33,7 +33,7 @@ pub enum MarketRegime {
 /// Calculate all technical signals for a given time series
 pub fn calculate_signals(slug: &str, data: &[f64]) -> TechnicalSignals {
     let rsi = calculate_rsi(data, 14);
-    let adx = calculate_adx(data, 14); 
+    let _adx = calculate_adx(data, 14); 
     
     let sma_50 = calculate_sma(data, 50);
     let sma_200 = calculate_sma(data, 200);

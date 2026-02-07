@@ -24,14 +24,14 @@ async fn main() {
 
     // 2. Fetch PE
     println!("Triggering SP500PE12M...");
-    match orchestrator::calculate_and_save(&pool, &api_key, "SP500PE12M", false).await {
+    match orchestrator::calculate_and_save(&pool, &api_key, "SP500PE12M", false, true).await {
         Ok(data) => println!("Success: Fetched {} points for PE", data.len()),
         Err(e) => println!("Error fetching PE: {}", e),
     }
 
     // 3. Calculate Yield Gap
     println!("Triggering Yield Gap...");
-    match orchestrator::calculate_and_save(&pool, &api_key, "yield_gap", false).await {
+    match orchestrator::calculate_and_save(&pool, &api_key, "yield_gap", false, true).await {
         Ok(data) => println!("Success: Calculated {} points for Yield Gap", data.len()),
         Err(e) => println!("Error calculating Yield Gap: {}", e),
     }

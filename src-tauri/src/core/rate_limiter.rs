@@ -30,6 +30,10 @@ impl RateLimiter {
                 // Minimal delay to prevent burst flood.
                 sleep(Duration::from_millis(100)).await;
             },
+            "FINNHUB" => {
+                // Free API: ~60 calls/minute -> 1 second delay
+                sleep(Duration::from_millis(1000)).await;
+            },
             _ => {
                 // Default minimal safe delay
                 sleep(Duration::from_millis(100)).await;

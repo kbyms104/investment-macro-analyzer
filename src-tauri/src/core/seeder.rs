@@ -28,6 +28,8 @@ fn source_to_string(source: &SourceType) -> &'static str {
         SourceType::Tiingo => "Tiingo",
         // SourceType::Upbit => "Upbit",
         SourceType::Binance => "Binance",
+        SourceType::WorldBank => "WorldBank", // New
+        SourceType::Eia => "EIA",             // New
         SourceType::Glassnode => "Glassnode",
         SourceType::Alternative => "Alternative",
         SourceType::Manual => "Manual",

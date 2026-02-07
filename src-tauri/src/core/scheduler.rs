@@ -93,12 +93,14 @@ async fn run_pending_updates(pool: &SqlitePool, app_handle: Option<AppHandle>) -
     // We process ALL indicators, but in small batches with rest in between.
     
     // A. Canary Probe (First item)
+        // A. Canary Probe (First item)
     if !indicators.is_empty() {
         println!("🐦 Launching Canary Probe to verify API health...");
         let (probe_slug, probe_source) = &indicators[0];
         
         let _ = db::update_indicator_status(pool, probe_slug, "updating", None).await;
-        let probe_result = orchestrator::calculate_and_save(pool, &api_key, probe_slug, false).await.map(|_| ());
+        // Canary always fetches dependencies to be safe, or we can treat it as Base
+        let probe_result = orchestrator::calculate_and_save(pool, &api_key, probe_slug, false, true).await.map(|_| ());
 
         match probe_result {
             Ok(_) => {
@@ -129,7 +131,8 @@ async fn run_pending_updates(pool: &SqlitePool, app_handle: Option<AppHandle>) -
             println!("   -> Updating: {} ({})", slug, source);
             
             let _ = db::update_indicator_status(pool, slug, "updating", None).await;
-            let result = orchestrator::calculate_and_save(pool, &api_key, slug, false).await.map(|_| ());
+            // Standard update: fetch dependencies if needed (default behavior for single updates)
+            let result = orchestrator::calculate_and_save(pool, &api_key, slug, false, true).await.map(|_| ());
 
             match result {
                 Ok(_) => {
@@ -156,7 +159,13 @@ async fn run_pending_updates(pool: &SqlitePool, app_handle: Option<AppHandle>) -
         }
     }
 
-    // Duplicated alert check removed
+    // PHASE 2: Re-Calculate Derived Indicators
+    // Even if we updated them above individually, doing a final pass ensures 
+    // that any cross-dependencies are mutually consistent.
+    // Plus, it catches any indicators that weren't "stale" but might need recalc due to dependency updates.
+    println!("🧮 Phase 2: Re-calculating all derived indicators to ensure consistency...");
+    let (calc_success, calc_fail) = orchestrator::batch_calculate_derived_indicators(pool, &api_key, app_handle.as_ref()).await;
+    println!("   -> Calculated {} indicators ({} failed)", calc_success, calc_fail);
 
     // Auto-calculate Risk Score History (no manual button needed!)
     println!("🧮 Auto-calculating Risk Score History...");
