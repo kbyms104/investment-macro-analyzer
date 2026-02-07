@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Database, RefreshCw, Terminal, Play, Server } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
+import { AlertDialog } from "../ui/AlertDialog";
 
 interface SystemStatus {
     source: string;
@@ -26,6 +27,21 @@ export function DataLabView() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const logsEndRef = useRef<HTMLDivElement>(null);
 
+    // Custom Alert Dialog State
+    const [alertDialog, setAlertDialog] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        variant: "info" | "danger" | "success" | "warning";
+        onConfirm?: () => void;
+    }>({ isOpen: false, title: "", description: "", variant: "info" });
+
+    const showConfirm = (title: string, description: string, onConfirm: () => void) => {
+        setAlertDialog({ isOpen: true, title, description, variant: "warning", onConfirm });
+    };
+
+    const closeAlert = () => setAlertDialog(prev => ({ ...prev, isOpen: false }));
+
     // Function to analyze system health
     const refreshStatus = async () => {
         setLoading(true);
@@ -34,12 +50,11 @@ export function DataLabView() {
             const indicators = await invoke<any[]>("get_indicators_list");
 
             // 2. Group by Source
-            const sources = ["FRED", "Tiingo", "Binance", "Alternative", "Calculated"];
+            const sources = ["FRED", "Tiingo", "Yahoo", "Binance", "Alternative", "Calculated"];
             const newStatuses: SystemStatus[] = sources.map(source => {
                 // Case insensitive match and fallback for source string variance (Map Yahoo -> Tiingo)
                 const items = indicators.filter(i => {
                     const s = (i.source || "").toUpperCase();
-                    if (source === 'Tiingo' && s === 'YAHOO') return true;
                     return s === source.toUpperCase();
                 });
                 const total = items.length;
@@ -102,7 +117,6 @@ export function DataLabView() {
             const indicators: any[] = await invoke("get_indicators_list");
             const targets = indicators.filter(i => {
                 const s = (i.source || "").toUpperCase();
-                if (source === 'Tiingo' && s === 'YAHOO') return true;
                 return s === source.toUpperCase();
             });
 
@@ -143,59 +157,60 @@ export function DataLabView() {
     };
 
     // Deep Backfill Logic
-    const handleDeepBackfill = async () => {
-        if (!confirm("Start Deep Backfill Analysis? This will fetch 5+ years of historical data for ALL indicators. It may take 1-2 minutes.")) return;
+    const handleDeepBackfill = () => {
+        showConfirm(
+            "Start Deep Backfill?",
+            "This will fetch 5+ years of historical data for ALL indicators. It may take 1-2 minutes.",
+            async () => {
+                closeAlert();
+                setLoading(true);
+                addLog('info', 'System', '🚀 Starting DEEP BACKFILL Protocol...');
 
-        setLoading(true);
-        addLog('info', 'System', '🚀 Starting DEEP BACKFILL Protocol...');
+                try {
+                    const apiKey: string = await invoke("get_api_key");
+                    const indicators: any[] = await invoke("get_indicators_list");
+                    // Filter out internal calculated ones or manual
+                    const targets = indicators.filter(i => i.source !== 'Manual' && i.source !== 'Calculated');
 
-        try {
-            const apiKey: string = await invoke("get_api_key");
-            const indicators: any[] = await invoke("get_indicators_list");
-            // Filter out internal calculated ones or manual
-            const targets = indicators.filter(i => i.source !== 'Manual' && i.source !== 'Calculated');
+                    addLog('info', 'System', `Queueing ${targets.length} indicators for historical retrieval...`);
 
-            addLog('info', 'System', `Queueing ${targets.length} indicators for historical retrieval...`);
+                    // Concurrency Control: Process in chunks of 3
+                    const CHUNK_SIZE = 3;
+                    let processed = 0;
+                    let failures = 0;
 
-            // Concurrency Control: Process in chunks of 3
-            const CHUNK_SIZE = 3;
-            let processed = 0;
-            let failures = 0;
+                    for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
+                        const chunk = targets.slice(i, i + CHUNK_SIZE);
 
-            for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
-                const chunk = targets.slice(i, i + CHUNK_SIZE);
+                        await Promise.all(chunk.map(async (ind) => {
+                            try {
+                                await invoke("calculate_indicator", { apiKey, slug: ind.slug, backfill: true });
+                            } catch (e) {
+                                failures++;
+                                addLog('warn', ind.source, `Backfill failed for ${ind.slug}: ${e}`);
+                            }
+                        }));
 
-                await Promise.all(chunk.map(async (ind) => {
-                    try {
-                        // const start = Date.now();
-                        await invoke("calculate_indicator", { apiKey, slug: ind.slug, backfill: true });
-                        // const duration = Date.now() - start;
-                        // addLog('info', ind.source, `Synced ${ind.slug} (${duration}ms)`);
-                    } catch (e) {
-                        failures++;
-                        addLog('warn', ind.source, `Backfill failed for ${ind.slug}: ${e}`);
+                        processed += chunk.length;
+
+                        if (processed % 10 === 0 || processed === targets.length) {
+                            addLog('info', 'System', `Progress: ${processed}/${targets.length} indicators processed...`);
+                        }
+
+                        // Rate Limit Pause (Safe 500ms)
+                        await new Promise(r => setTimeout(r, 500));
                     }
-                }));
 
-                processed += chunk.length;
+                    addLog('success', 'System', `✨ DEEP BACKFILL COMPLETE. Success: ${targets.length - failures}, Failures: ${failures}`);
+                    refreshStatus();
 
-                // Update Progress somehow? Logs are fine.
-                if (processed % 10 === 0 || processed === targets.length) {
-                    addLog('info', 'System', `Progress: ${processed}/${targets.length} indicators processed...`);
+                } catch (e) {
+                    addLog('error', 'System', `Backfill Crash: ${e}`);
+                } finally {
+                    setLoading(false);
                 }
-
-                // Rate Limit Pause (Safe 500ms)
-                await new Promise(r => setTimeout(r, 500));
             }
-
-            addLog('success', 'System', `✨ DEEP BACKFILL COMPLETE. Success: ${targets.length - failures}, Failures: ${failures}`);
-            refreshStatus();
-
-        } catch (e) {
-            addLog('error', 'System', `Backfill Crash: ${e}`);
-        } finally {
-            setLoading(false);
-        }
+        );
     };
 
     useEffect(() => {
@@ -344,6 +359,23 @@ export function DataLabView() {
                 </GlassCard>
             </div>
 
+            {/* Custom Alert Dialog */}
+            <AlertDialog
+                isOpen={alertDialog.isOpen}
+                title={alertDialog.title}
+                description={alertDialog.description}
+                variant={alertDialog.variant}
+                confirmText="Continue"
+                cancelText="Cancel"
+                onConfirm={() => {
+                    if (alertDialog.onConfirm) {
+                        alertDialog.onConfirm();
+                    } else {
+                        closeAlert();
+                    }
+                }}
+                onCancel={closeAlert}
+            />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 use crate::models::DataPoint;
 use crate::fetcher::fred::FredFetcher;
+use crate::fetcher::yahoo::YahooFetcher;
 use crate::fetcher::tiingo::TiingoFetcher;
 // use crate::fetcher::upbit::UpbitFetcher;
 use crate::fetcher::binance::BinanceFetcher;
@@ -30,6 +31,11 @@ pub async fn calculate_and_save(
             SourceType::Fred => {
                 let symbol = meta.source_symbol.as_deref().unwrap_or(indicator_slug);
                 return fetch_and_save_raw(pool, api_key, indicator_slug, symbol, SourceType::Fred, backfill).await;
+            },
+            SourceType::Yahoo => {
+                let symbol = meta.source_symbol.as_deref().unwrap_or(indicator_slug);
+                println!("Orchestrator: Fetching Yahoo for '{}' -> Symbol: '{}'", indicator_slug, symbol);
+                return fetch_and_save_raw(pool, api_key, indicator_slug, symbol, SourceType::Yahoo, backfill).await;
             },
             SourceType::Tiingo => {
                 let symbol = meta.source_symbol.as_deref().unwrap_or(indicator_slug);
@@ -117,6 +123,7 @@ async fn fetch_and_save_raw(
     
     let fetcher: Box<dyn DataSource + Send + Sync> = match source_type {
         SourceType::Fred => Box::new(FredFetcher::new(api_key.to_string(), backfill)),
+        SourceType::Yahoo => Box::new(YahooFetcher::new()),
         SourceType::Tiingo => {
             // Tiingo API key from settings or fallback to FRED key (legacy behavior, but we have separate key now)
             let tiingo_key = crate::db::get_setting(pool, "TIINGO_API_KEY").await
@@ -150,6 +157,7 @@ async fn fetch_and_save_raw(
 
     let source_name = match source_type {
         SourceType::Fred => "FRED",
+        SourceType::Yahoo => "Yahoo",
         SourceType::Tiingo => "Tiingo",
         // SourceType::Upbit => "Upbit",
         SourceType::Binance => "Binance",

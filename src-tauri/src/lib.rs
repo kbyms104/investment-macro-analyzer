@@ -201,6 +201,7 @@ pub mod core;
 pub mod indicators;
 pub mod analysis;
 pub mod llm;
+pub mod commands;
 
 use tauri::Manager;
 use tauri::{
@@ -437,7 +438,8 @@ pub fn run() {
             save_llm_settings,
             test_llm_connection,
             get_technical_signals,
-            get_tiingo_usage
+            get_tiingo_usage,
+            commands::yahoo_test::test_yahoo_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

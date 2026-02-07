@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Save, Database, History, DownloadCloud, AlertTriangle, CheckCircle, Smartphone, Bot, Zap } from "lucide-react";
+import { Database, History, DownloadCloud, AlertTriangle, CheckCircle, Bot, Zap } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
+import { AlertDialog } from "../ui/AlertDialog";
 
 interface SyncProgress {
     current: number;
@@ -41,6 +42,27 @@ export function SettingsView() {
     });
     const [llmTestResult, setLlmTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [llmSaving, setLlmSaving] = useState(false);
+
+    // Custom Alert Dialog State
+    const [alertDialog, setAlertDialog] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        variant: "info" | "danger" | "success" | "warning";
+        onConfirm?: () => void;
+        confirmText?: string;
+        showCancel?: boolean;
+    }>({ isOpen: false, title: "", description: "", variant: "info", showCancel: false });
+
+    const showAlert = (title: string, description: string, variant: "info" | "danger" | "success" | "warning" = "info") => {
+        setAlertDialog({ isOpen: true, title, description, variant, showCancel: false });
+    };
+
+    const showConfirm = (title: string, description: string, onConfirm: () => void, variant: "info" | "danger" | "success" | "warning" = "warning") => {
+        setAlertDialog({ isOpen: true, title, description, variant, onConfirm, confirmText: "Continue", showCancel: true });
+    };
+
+    const closeAlert = () => setAlertDialog(prev => ({ ...prev, isOpen: false }));
 
     useEffect(() => {
         // Load API Key
@@ -104,45 +126,49 @@ export function SettingsView() {
     const saveApiKey = async () => {
         try {
             await invoke("save_api_key", { apiKey });
-            alert("API Key saved successfully!");
+            showAlert("Success", "API Key saved successfully!", "success");
         } catch (e) {
-            alert("Failed to save API Key: " + e);
+            showAlert("Error", "Failed to save API Key: " + e, "danger");
         }
     };
 
     const saveTiingoApiKey = async () => {
         try {
             await invoke("save_tiingo_api_key", { apiKey: tiingoApiKey });
-            alert("Tiingo API Key saved successfully!");
+            showAlert("Success", "Tiingo API Key saved successfully!", "success");
         } catch (e) {
-            alert("Failed to save Tiingo API Key: " + e);
+            showAlert("Error", "Failed to save Tiingo API Key: " + e, "danger");
         }
     };
 
-    const startFullSync = async () => {
+    const startFullSync = () => {
         if (!apiKey) {
-            alert("Please provide a FRED API Key first.");
+            showAlert("API Key Required", "Please provide a FRED API Key first.", "warning");
             return;
         }
 
-        if (!confirm("This will download the entire history for all indicators. It process may take 2-3 minutes. Continue?")) {
-            return;
-        }
+        showConfirm(
+            "Start Full History Download?",
+            "This will download the entire history for all indicators. It may take 2-3 minutes.",
+            async () => {
+                closeAlert();
+                setIsSyncing(true);
+                setSyncResult(null);
+                setProgress({ current: 0, total: 0, slug: "Starting...", status: "init" });
 
-        setIsSyncing(true);
-        setSyncResult(null);
-        setProgress({ current: 0, total: 0, slug: "Starting...", status: "init" });
-
-        try {
-            const result = await invoke<string>("sync_all_history", { apiKey });
-            setSyncResult(result);
-        } catch (e) {
-            setSyncResult("Failed: " + e);
-        } finally {
-            setIsSyncing(false);
-            setProgress(null);
-            localStorage.setItem("has_synced_history", "true");
-        }
+                try {
+                    const result = await invoke<string>("sync_all_history", { apiKey });
+                    setSyncResult(result);
+                } catch (e) {
+                    setSyncResult("Failed: " + e);
+                } finally {
+                    setIsSyncing(false);
+                    setProgress(null);
+                    localStorage.setItem("has_synced_history", "true");
+                }
+            },
+            "warning"
+        );
     };
 
     return (
@@ -239,6 +265,33 @@ export function SettingsView() {
                                 </div>
                             </div>
                         )}
+                    </div>
+
+                    {/* Yahoo Finance */}
+                    <div>
+                        <label className="text-sm font-semibold block mb-1">Yahoo Finance</label>
+                        <div className="flex gap-3 items-center">
+                            <div className="flex-1 bg-background/50 border border-border rounded-lg px-4 py-2 text-muted-foreground flex items-center justify-between">
+                                <span>Public Data Source (No Key Required)</span>
+                                <span className="text-xs bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded border border-emerald-500/20">Active</span>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const res = await invoke<{ success: boolean, message: string }>("test_yahoo_connection");
+                                        showAlert(res.success ? "Success" : "Connection Failed", res.message, res.success ? "success" : "danger");
+                                    } catch (e) {
+                                        showAlert("Connection Error", String(e), "danger");
+                                    }
+                                }}
+                                className="px-6 py-2 bg-secondary hover:bg-secondary/80 border border-border text-foreground font-bold rounded-lg transition-colors"
+                            >
+                                Test
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Source for Global Indices (S&P 500, Nasdaq, Nikkei, etc.).
+                        </p>
                     </div>
                 </div>
             </GlassCard>
@@ -468,6 +521,24 @@ export function SettingsView() {
                     <p>Developer: Antigravity Agent</p>
                 </div>
             </GlassCard>
+
+            {/* Custom Alert Dialog */}
+            <AlertDialog
+                isOpen={alertDialog.isOpen}
+                title={alertDialog.title}
+                description={alertDialog.description}
+                variant={alertDialog.variant}
+                confirmText={alertDialog.onConfirm ? (alertDialog.confirmText || "Continue") : "OK"}
+                cancelText="Cancel"
+                onConfirm={() => {
+                    if (alertDialog.onConfirm) {
+                        alertDialog.onConfirm();
+                    } else {
+                        closeAlert();
+                    }
+                }}
+                onCancel={closeAlert}
+            />
         </div>
     );
 }

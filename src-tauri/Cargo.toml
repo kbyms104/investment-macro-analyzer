@@ -37,4 +37,6 @@ rand = "0.8"
 tauri-plugin-notification = "2.3.3"
 scraper = "0.25.0"
 select = "0.6.1"
+yahoo_finance_api = "4.1.0"
+time = { version = "0.3.47", features = ["macros", "formatting", "parsing"] }
 

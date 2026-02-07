@@ -20,6 +20,7 @@ export interface IndicatorItem {
     description?: string;
     source_url?: string;
     frequency?: string;
+    source?: string;
     isError?: boolean;
     errorMessage?: string;
 }
@@ -33,6 +34,7 @@ interface IndicatorMetadata {
     unit: any; // UnitType from backend
     source_url?: string;
     frequency?: string;
+    source?: string;
 }
 
 const ALL_CATEGORY = "All";
@@ -84,7 +86,8 @@ export function IndicatorsView({ initialSelection }: IndicatorsViewProps) {
                     updated: "Sync required",
                     description: meta.description,
                     source_url: meta.source_url,
-                    frequency: meta.frequency
+                    frequency: meta.frequency,
+                    source: meta.source,
                 };
 
                 // Infer Unit if missing

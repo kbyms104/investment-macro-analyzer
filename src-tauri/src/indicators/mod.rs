@@ -12,6 +12,7 @@ pub mod copper_gold;
 pub mod commodity_ratios;
 pub mod macro_indicators;
 pub mod liquidity_spreads;
+pub mod psychology;
 pub mod registry;
 
 #[async_trait]

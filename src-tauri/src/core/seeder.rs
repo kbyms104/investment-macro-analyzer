@@ -24,6 +24,7 @@ fn category_to_string(category: &Category) -> &'static str {
 fn source_to_string(source: &SourceType) -> &'static str {
     match source {
         SourceType::Fred => "FRED",
+        SourceType::Yahoo => "Yahoo",
         SourceType::Tiingo => "Tiingo",
         // SourceType::Upbit => "Upbit",
         SourceType::Binance => "Binance",
@@ -91,7 +92,7 @@ pub async fn seed_registry(pool: &SqlitePool) -> Result<(), anyhow::Error> {
         }
     }
     
-    println!("Seeding complete. Stats: FRED={}, Tiingo={}, Binance={}, Calculated={}", 
-             stats.fred, stats.tiingo, stats.binance, stats.calculated);
+    println!("Seeding complete. Stats: FRED={}, Yahoo={}, Tiingo={}, Binance={}, Calculated={}", 
+             stats.fred, stats.yahoo, stats.tiingo, stats.binance, stats.calculated);
     Ok(())
 }

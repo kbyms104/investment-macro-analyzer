@@ -1,5 +1,5 @@
 import { AdvancedAnalyticsChart } from "../charts/AdvancedAnalyticsChart";
-import { ArrowLeft, Clock, BarChart2, AlertTriangle, ExternalLink, Calendar } from "lucide-react";
+import { ArrowLeft, Clock, BarChart2, AlertTriangle, ExternalLink, Calendar, RefreshCw, CheckCircle } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -20,6 +20,8 @@ export function IndicatorDetail({ indicator, onBack, showBackButton = true }: In
     const [chartData, setChartData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [range, setRange] = useState("ALL");
+    const [syncing, setSyncing] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -46,6 +48,27 @@ export function IndicatorDetail({ indicator, onBack, showBackButton = true }: In
         };
         fetchData();
     }, [indicator, range]);
+
+    const handleSyncThis = async () => {
+        setSyncing(true);
+        setSyncStatus("idle");
+        try {
+            const apiKey = await invoke<string>("get_api_key");
+            await invoke("calculate_indicator", { apiKey, slug: indicator.slug, backfill: true });
+            setSyncStatus("success");
+            // Refetch chart data after sync
+            const res = await invoke<DataPoint[]>("get_indicator_history", { slug: indicator.slug, range });
+            if (res) setChartData(res.map(d => ({ timestamp: d.timestamp, value: d.value })));
+            // Reset status after 3 seconds
+            setTimeout(() => setSyncStatus("idle"), 3000);
+        } catch (e) {
+            console.error("Sync failed:", e);
+            setSyncStatus("error");
+            setTimeout(() => setSyncStatus("idle"), 3000);
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-4 h-full animate-in fade-in duration-300">
@@ -88,21 +111,52 @@ export function IndicatorDetail({ indicator, onBack, showBackButton = true }: In
                                                 <Calendar size={10} /> {indicator.frequency}
                                             </span>
                                         )}
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium border uppercase tracking-wide ${indicator.source?.toLowerCase().includes("yahoo") ? "bg-purple-500/10 text-purple-500 border-purple-500/20" :
+                                            indicator.source?.toLowerCase().includes("fred") ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                                                "bg-muted text-muted-foreground border-border"
+                                            }`}>
+                                            {indicator.source || "Unknown Source"}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Range Selectors moved to Header right side */}
-                            <div className="flex gap-1 bg-muted/30 p-1 rounded-lg border border-border/50">
-                                {['1Y', '5Y', 'ALL'].map(r => (
-                                    <button
-                                        key={r}
-                                        onClick={() => setRange(r)}
-                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${range === r ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
-                                    >
-                                        {r}
-                                    </button>
-                                ))}
+                            {/* Range Selectors + Sync Button */}
+                            <div className="flex items-center gap-3">
+                                {/* Sync This Button */}
+                                <button
+                                    onClick={handleSyncThis}
+                                    disabled={syncing}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${syncStatus === "success"
+                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                        : syncStatus === "error"
+                                            ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
+                                            : syncing
+                                                ? "bg-muted text-muted-foreground border-border cursor-wait"
+                                                : "bg-primary/10 text-primary border-primary/30 hover:bg-primary hover:text-white"
+                                        }`}
+                                >
+                                    {syncStatus === "success" ? (
+                                        <><CheckCircle size={14} /> Synced!</>
+                                    ) : syncStatus === "error" ? (
+                                        <><AlertTriangle size={14} /> Failed</>
+                                    ) : (
+                                        <><RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> {syncing ? "Syncing..." : "Sync This"}</>
+                                    )}
+                                </button>
+
+                                {/* Range Selectors */}
+                                <div className="flex gap-1 bg-muted/30 p-1 rounded-lg border border-border/50">
+                                    {['1Y', '5Y', 'ALL'].map(r => (
+                                        <button
+                                            key={r}
+                                            onClick={() => setRange(r)}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${range === r ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+                                        >
+                                            {r}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
@@ -125,14 +179,15 @@ export function IndicatorDetail({ indicator, onBack, showBackButton = true }: In
                         </div>
                     </div>
                 </GlassCard>
-            </div>
+            </div >
 
             {/* Bottom: Stats Grid */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            < div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4" >
                 {/* 1. Value Card */}
-                <GlassCard className="p-6 flex flex-col justify-center relative overflow-hidden group">
+                < GlassCard className="p-6 flex flex-col justify-center relative overflow-hidden group" >
                     {/* Background Accent */}
-                    <div className={`absolute -right-6 -top-6 w-32 h-32 rounded-full blur-3xl opacity-10 transition-colors ${indicator.change.startsWith('+') ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                    < div className={`absolute -right-6 -top-6 w-32 h-32 rounded-full blur-3xl opacity-10 transition-colors ${indicator.change.startsWith('+') ? 'bg-emerald-500' : 'bg-rose-500'}`
+                    }></div >
 
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
                         Current Value
@@ -144,10 +199,10 @@ export function IndicatorDetail({ indicator, onBack, showBackButton = true }: In
                         {indicator.change}
                         <span className="ml-2 text-[10px] opacity-60 font-normal uppercase">24h Change</span>
                     </div>
-                </GlassCard>
+                </GlassCard >
 
                 {/* 2. Analysis Card */}
-                <GlassCard className="p-6 flex flex-col justify-center border-amber-500/20 bg-amber-500/5 relative overflow-hidden">
+                < GlassCard className="p-6 flex flex-col justify-center border-amber-500/20 bg-amber-500/5 relative overflow-hidden" >
                     <div className="absolute -left-6 -bottom-6 w-24 h-24 rounded-full bg-amber-500/10 blur-2xl"></div>
                     <div className="relative z-10">
                         <h3 className="text-sm font-bold text-amber-500 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -166,10 +221,10 @@ export function IndicatorDetail({ indicator, onBack, showBackButton = true }: In
                             {!["Valuation", "Liquidity"].includes(indicator.category) && "Current trend suggests monitoring for breakout signals."}
                         </p>
                     </div>
-                </GlassCard>
+                </GlassCard >
 
                 {/* 3. Recent Data List */}
-                <GlassCard className="flex flex-col min-h-0 bg-secondary/5" noPadding>
+                < GlassCard className="flex flex-col min-h-0 bg-secondary/5" noPadding >
                     <div className="p-4 border-b border-border/50 flex justify-between items-center bg-muted/20">
                         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                             <BarChart2 size={16} className="text-muted-foreground" />
@@ -195,8 +250,8 @@ export function IndicatorDetail({ indicator, onBack, showBackButton = true }: In
                             </div>
                         )}
                     </div>
-                </GlassCard>
-            </div>
-        </div>
+                </GlassCard >
+            </div >
+        </div >
     );
 }

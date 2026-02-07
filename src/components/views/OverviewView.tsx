@@ -49,11 +49,25 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
     const [spxData, setSpxData] = useState<any[]>([]);
     const [vixData, setVixData] = useState<any[]>([]);
     const [showMethodology, setShowMethodology] = useState(false);
-    const [riskHistory, setRiskHistory] = useState<RiskScorePoint[]>([]);
+
     const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>('1Y');
 
     // New State for Technical Signals
     const [techSignals, setTechSignals] = useState<TechnicalSignal[]>([]);
+
+    // Independent state for fixed 1-Year Risk Trend
+    const [riskTrendData, setRiskTrendData] = useState<RiskScorePoint[]>([]);
+
+
+
+    useEffect(() => {
+        // Fetch 1-Year Risk History once for the trend card
+        invoke<RiskScorePoint[]>("get_risk_score_history", { days: 365 })
+            .then(data => {
+                if (data) setRiskTrendData(data);
+            })
+            .catch(console.error);
+    }, []);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -85,7 +99,7 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
                 if (yieldRes) setYieldGapData(yieldRes);
                 if (spxRes) setSpxData(spxRes);
                 if (vixRes) setVixData(vixRes);
-                if (riskHistoryRes) setRiskHistory(riskHistoryRes);
+                if (riskHistoryRes) setRiskTrendData(riskHistoryRes);
 
                 // 3. Fetch Technical Signals for Key Assets
                 const keyAssets = [
@@ -133,7 +147,7 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
 
             {/* Hero Section: Market Sentiment Engine */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <GlassCard className="lg:col-span-2 p-8 border-border overflow-hidden relative">
+                <GlassCard className="lg:col-span-2 p-8 border-border overflow-hidden relative flex flex-col justify-between">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
                     <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
@@ -188,6 +202,35 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* NEW: Context & Trend (Style 1: Stacked at Bottom) */}
+                    <div className="mt-6 relative z-10 border-t border-border/50 pt-4">
+                        <div className="flex justify-between items-end mb-2">
+                            <div className="text-sm font-medium text-muted-foreground">
+                                {getRiskTrendText(riskTrendData)}
+                            </div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                                1-Year Trend
+                            </div>
+                        </div>
+                        <div className="h-16 w-full opacity-80 mask-linear-fade relative">
+                            <Sparkline
+                                data={riskTrendData.slice(-365).map(r => r.risk_score)}
+                                color={(status?.risk_score || 0) >= 60 ? "#f43f5e" : (status?.risk_score || 0) >= 30 ? "#f59e0b" : "#10b981"}
+                                width={600}
+                                height={64}
+                                strokeWidth={3}
+                            />
+                        </div>
+                        {/* 1-Year Range Text (Option B: Centered) */}
+                        {riskTrendData.length > 0 && (
+                            <div className="flex justify-center items-center mt-2 px-1">
+                                <span className="text-[10px] font-bold font-mono text-muted-foreground/70 bg-muted/30 px-2 py-0.5 rounded-full border border-border/30">
+                                    1y Range: {Math.min(...riskTrendData.slice(-365).map(r => r.risk_score)).toFixed(0)} ~ {Math.max(...riskTrendData.slice(-365).map(r => r.risk_score)).toFixed(0)}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </GlassCard>
 
@@ -300,9 +343,9 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
 
             {/* Main Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px]">
-                <GlassCard className="p-4">
-                    <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-sm font-semibold text-muted-foreground">{t('overview.historical_risk')}</h3>
+                <GlassCard className="p-4 flex flex-col">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-semibold text-muted-foreground">Market Performance (S&P 500 vs VIX)</h3>
                         <div className="flex gap-1 items-center">
                             {(['1M', '3M', '6M', '1Y', 'ALL'] as ChartPeriod[]).map((p) => (
                                 <button
@@ -319,24 +362,28 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
                         </div>
                     </div>
 
-                    <AdvancedAnalyticsChart
-                        title=""
-                        data={riskHistory.length > 0
-                            ? riskHistory.map((d) => ({
-                                timestamp: new Date(d.timestamp * 1000).toISOString(),
-                                score: d.risk_score
-                            }))
-                            : buffettData.map((d) => ({
-                                timestamp: d.timestamp,
-                                score: status?.risk_score || 0
-                            }))
-                        }
-                        series={[
-                            { name: "Risk Score", dataKey: "score", color: "#6366f1", type: "area", fillOpacity: 0.1 }
-                        ]}
-                        height={280}
-                    />
-                </GlassCard >
+                    <div className="flex-1 w-full min-h-[300px]">
+                        <AdvancedAnalyticsChart
+                            title=""
+                            data={(() => {
+                                // Align by timestamp to ensure correct overlay even if data lengths differ
+                                const vixMap = new Map(vixData.map(d => [d.timestamp, d.value]));
+
+                                return spxData.map(s => ({
+                                    timestamp: s.timestamp,
+                                    spx: s.value,
+                                    vix: vixMap.get(s.timestamp) || null,
+                                }));
+                            })()}
+                            series={[
+                                { name: "S&P 500", dataKey: "spx", color: "#6366f1", type: "line", strokeWidth: 2, yAxisId: "left" },
+                                { name: "VIX", dataKey: "vix", color: "#facc15", type: "line", strokeWidth: 2, yAxisId: "right" },
+                                // { name: "Yield Spread", dataKey: "yield", color: "#10b981", type: "line", strokeWidth: 1, yAxisId: "right" }
+                            ]}
+                            height={280}
+                        />
+                    </div>
+                </GlassCard>
 
                 <GlassCard className="p-4">
                     <div className="flex justify-between items-center mb-2">
@@ -470,6 +517,31 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
     );
 }
 
+
+function getRiskTrendText(history: RiskScorePoint[]): string {
+    if (!history || history.length < 2) return "Collecting data...";
+
+    // Sort by timestamp just in case
+    const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
+    const latest = sorted[sorted.length - 1];
+
+    // Calculate 7-day trend (approximate)
+    // Find a point roughly 7 days ago
+    const sevenDaysAgoTs = latest.timestamp - (7 * 24 * 60 * 60);
+    const sevenDaysAgo = sorted.find(p => p.timestamp >= sevenDaysAgoTs);
+
+    // If we don't have 7 days data, compare with the first available
+    const comparePoint = sevenDaysAgo || sorted[0];
+    const trend = latest.risk_score - comparePoint.risk_score;
+
+    if (latest.risk_score >= 60) return "⚠️ Critical Risk Level detected.";
+    if (latest.risk_score >= 30) {
+        return trend > 5 ? "Risk is rising noticeably." : "Risk is elevated.";
+    }
+
+    return trend < -5 ? "Market risk is decreasing significantly." : "Market conditions remain stable.";
+}
+
 function getDriverTooltip(name: string): string {
     if (name.includes("Yield")) return "Inverted yield curve predicts recession within 6-18 months.";
     if (name.includes("VIX")) return "Volatility Index measures market expectation of near-term fluctuation.";
@@ -492,6 +564,7 @@ function ModelFactor({ name, weight, trigger, desc }: { name: string, weight: st
         </div>
     );
 }
+
 
 // Helper Components
 function StatCard({

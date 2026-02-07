@@ -13,6 +13,7 @@ use crate::indicators::macro_indicators::RealYield10Y;
 use crate::indicators::yield_gap::YieldGap;
 use crate::indicators::liquidity_spreads::{CommercialPaperSpread, SofrSpread};
 use crate::indicators::CalculatedIndicator;
+use crate::indicators::psychology::{RuleOf20, VixTermStructure, NdxSpxRatio};
 
 // ============================================================================
 // ENUMS
@@ -21,6 +22,7 @@ use crate::indicators::CalculatedIndicator;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum SourceType {
     Fred,
+    Yahoo,
     Tiingo,
     // Upbit,
     Binance,
@@ -146,6 +148,14 @@ static INDICATORS: Lazy<Vec<IndicatorMetadata>> = Lazy::new(|| {
              "CP 3M - T-Bill 3M. Corporate funding stress (TED Spread alternative)", None, UnitType::Percent, None, Some("Daily")),
         ind!("sofr_spread", "SOFR - Fed Funds", SourceType::Calculated, Category::Liquidity,
              "Repo market stress indicator. Positive = collateral scarcity or stress", None, UnitType::Percent, None, Some("Daily")),
+        
+        // NEW PSYCHOLOGY & VALUATION
+        ind!("rule_of_20", "Rule of 20", SourceType::Calculated, Category::Valuation,
+             "PE Ratio + CPI YoY. >20 = Overvalued", None, UnitType::Index, None, Some("Monthly")),
+        ind!("vix_term_structure", "VIX Term Structure (3M/1M)", SourceType::Calculated, Category::Risk,
+             "VIX 3M / VIX. >1.0 = Contango (Normal), <0.9 = Backwardation (Fear)", None, UnitType::Ratio, None, Some("Daily")),
+        ind!("ndx_spx_ratio", "Nasdaq/S&P 500 Ratio", SourceType::Calculated, Category::UsStocks,
+             "Tech Outperformance vs Broad Market", None, UnitType::Ratio, None, Some("Daily")), // Validates Gen 1 spec
 
         // =====================================================================
         // FRED - VALUATION (밸류에이션 원본 데이터)
@@ -289,38 +299,52 @@ static INDICATORS: Lazy<Vec<IndicatorMetadata>> = Lazy::new(|| {
              "Future construction indicator", Some("PERMIT"), UnitType::Thousands, Some("https://fred.stlouisfed.org/series/PERMIT"), Some("Monthly")),
  
         // =====================================================================
-        // TIINGO - US INDICES (미국 지수)
+        // YAHOO - US INDICES (미국 순수 지수)
         // =====================================================================
-        ind!("spx", "S&P 500", SourceType::Tiingo, Category::UsStocks,
-             "US large-cap benchmark", Some("spy"), UnitType::Index, Some("https://www.tiingo.com/spy"), Some("Daily")),
-        ind!("ndx", "Nasdaq 100", SourceType::Tiingo, Category::UsStocks,
-             "Tech-heavy index", Some("qqq"), UnitType::Index, Some("https://www.tiingo.com/qqq"), Some("Daily")),
-        ind!("djia", "Dow Jones Industrial", SourceType::Tiingo, Category::UsStocks,
-             "30 blue-chip stocks", Some("dia"), UnitType::Index, Some("https://www.tiingo.com/dia"), Some("Daily")),
-        ind!("russell_2000", "Russell 2000", SourceType::Tiingo, Category::UsStocks,
-             "Small-cap benchmark", Some("iwm"), UnitType::Index, Some("https://www.tiingo.com/iwm"), Some("Daily")),
+        ind!("spx", "S&P 500", SourceType::Yahoo, Category::UsStocks,
+             "US large-cap benchmark", Some("^GSPC"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EGSPC"), Some("Daily")),
+        ind!("ndx", "Nasdaq 100", SourceType::Yahoo, Category::UsStocks,
+             "Tech-heavy index", Some("^NDX"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5ENDX"), Some("Daily")),
+        ind!("djia", "Dow Jones Industrial", SourceType::Yahoo, Category::UsStocks,
+             "30 blue-chip stocks", Some("^DJI"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EDJI"), Some("Daily")),
+        ind!("russell_2000", "Russell 2000", SourceType::Yahoo, Category::UsStocks,
+             "Small-cap benchmark", Some("^RUT"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5ERUT"), Some("Daily")),
         ind!("vix", "VIX Volatility Index", SourceType::Fred, Category::Risk,
-             "Fear gauge. >30 = high fear, <15 = complacency", Some("VIXCLS"), UnitType::Index, Some("https://fred.stlouisfed.org/series/VIXCLS"), Some("Daily")), // Real VIX from FRED
-        ind!("vxn", "VXN (Nasdaq Volatility)", SourceType::Manual, Category::Risk,
-             "Nasdaq volatility index (No free API available)", None, UnitType::Index, None, Some("Manual")),
+             "Fear gauge. >30 = high fear, <15 = complacency", Some("VIXCLS"), UnitType::Index, Some("https://fred.stlouisfed.org/series/VIXCLS"), Some("Daily")), // Keep FRED
+        ind!("vxn", "VXN (Nasdaq Volatility)", SourceType::Yahoo, Category::Risk,
+             "Nasdaq volatility index", Some("^VXN"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EVXN"), Some("Daily")),
         ind!("skew", "SKEW Index", SourceType::Manual, Category::Risk,
              "Black swan risk (No free API available)", None, UnitType::Index, None, Some("Manual")),
 
         // =====================================================================
-        // TIINGO - GLOBAL INDICES (글로벌 지수)
+        // YAHOO - VOLATILITY & MACRO (변동성 및 매크로)
         // =====================================================================
-        ind!("nikkei", "Nikkei 225", SourceType::Tiingo, Category::Global,
-             "Japan benchmark", Some("ewj"), UnitType::Index, Some("https://www.tiingo.com/ewj"), Some("Daily")),
-        ind!("shanghai", "Shanghai Composite", SourceType::Tiingo, Category::Global,
-             "China A-shares", Some("mchi"), UnitType::Index, Some("https://www.tiingo.com/mchi"), Some("Daily")),
-        ind!("hang_seng", "Hang Seng", SourceType::Tiingo, Category::Global,
-             "Hong Kong benchmark", Some("ewh"), UnitType::Index, Some("https://www.tiingo.com/ewh"), Some("Daily")),
-        ind!("dax", "DAX", SourceType::Tiingo, Category::Global,
-             "Germany benchmark", Some("ewg"), UnitType::Index, Some("https://www.tiingo.com/ewg"), Some("Daily")),
-        ind!("ftse", "FTSE 100", SourceType::Tiingo, Category::Global,
-             "UK benchmark", Some("ewu"), UnitType::Index, Some("https://www.tiingo.com/ewu"), Some("Daily")),
-        ind!("euro_stoxx", "Euro Stoxx 50", SourceType::Tiingo, Category::Global,
-             "Eurozone blue chips", Some("fez"), UnitType::Index, Some("https://www.tiingo.com/fez"), Some("Daily")),
+        ind!("move_index", "MOVE Index", SourceType::Yahoo, Category::Risk,
+             "Bond Market Volatility (Treasury VIX)", Some("^MOVE"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EMOVE"), Some("Daily")),
+        ind!("vix_3m", "VIX 3-Month", SourceType::Yahoo, Category::Risk,
+             "3-Month Volatility Index (vs VIX)", Some("^VIX3M"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EVIX3M"), Some("Daily")),
+        ind!("dow_transport", "Dow Jones Transportation", SourceType::Yahoo, Category::UsMacro,
+             "Transport Index (Dow Theory Signal)", Some("^DJT"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EDJT"), Some("Daily")),
+        ind!("lumber_futures", "Lumber Futures", SourceType::Yahoo, Category::Commodities,
+             "Housing/Construction Leading Indicator", Some("LBR=F"), UnitType::UsdPrice, Some("https://finance.yahoo.com/quote/LBR=F"), Some("Daily")),
+        ind!("copper_futures", "Copper Futures", SourceType::Yahoo, Category::Commodities,
+             "Dr. Copper (Economic Health)", Some("HG=F"), UnitType::UsdPrice, Some("https://finance.yahoo.com/quote/HG=F"), Some("Daily")),
+
+        // =====================================================================
+        // YAHOO - GLOBAL INDICES (글로벌 순수 지수)
+        // =====================================================================
+        ind!("nikkei", "Nikkei 225", SourceType::Yahoo, Category::Global,
+             "Japan benchmark", Some("^N225"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EN225"), Some("Daily")),
+        ind!("shanghai", "Shanghai Composite", SourceType::Yahoo, Category::Global,
+             "China A-shares", Some("000001.SS"), UnitType::Index, Some("https://finance.yahoo.com/quote/000001.SS"), Some("Daily")),
+        ind!("hang_seng", "Hang Seng", SourceType::Yahoo, Category::Global,
+             "Hong Kong benchmark", Some("^HSI"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EHSI"), Some("Daily")),
+        ind!("dax", "DAX", SourceType::Yahoo, Category::Global,
+             "Germany benchmark", Some("^GDAXI"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EGDAXI"), Some("Daily")),
+        ind!("ftse", "FTSE 100", SourceType::Yahoo, Category::Global,
+             "UK benchmark", Some("^FTSE"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5EFTSE"), Some("Daily")),
+        ind!("euro_stoxx", "Euro Stoxx 50", SourceType::Yahoo, Category::Global,
+             "Eurozone blue chips", Some("^STOXX50E"), UnitType::Index, Some("https://finance.yahoo.com/quote/%5ESTOXX50E"), Some("Daily")),
 
         // =====================================================================
         // TIINGO - CURRENCIES (환율)
@@ -421,6 +445,18 @@ static INDICATORS: Lazy<Vec<IndicatorMetadata>> = Lazy::new(|| {
              "Communication Services SPDR", Some("xlc"), UnitType::UsdPrice, Some("https://www.tiingo.com/xlc"), Some("Daily")),
 
         // =====================================================================
+        // YAHOO - SECTOR & FACTOR ETFs (섹터 및 팩터)
+        // =====================================================================
+        ind!("vug", "Vanguard Growth (VUG)", SourceType::Yahoo, Category::UsStocks,
+             "Large Cap Growth Proxy", Some("VUG"), UnitType::UsdPrice, Some("https://finance.yahoo.com/quote/VUG"), Some("Daily")),
+        ind!("vtv", "Vanguard Value (VTV)", SourceType::Yahoo, Category::UsStocks,
+             "Large Cap Value Proxy", Some("VTV"), UnitType::UsdPrice, Some("https://finance.yahoo.com/quote/VTV"), Some("Daily")),
+        ind!("sphb", "High Beta (SPHB)", SourceType::Yahoo, Category::UsStocks,
+             "High Volatility/Aggressive Stocks", Some("SPHB"), UnitType::UsdPrice, Some("https://finance.yahoo.com/quote/SPHB"), Some("Daily")),
+        ind!("splv", "Low Volatility (SPLV)", SourceType::Yahoo, Category::UsStocks,
+             "Low Volatility/Defensive Stocks", Some("SPLV"), UnitType::UsdPrice, Some("https://finance.yahoo.com/quote/SPLV"), Some("Daily")),
+
+        // =====================================================================
         // INTERNAL/HIDDEN (계산용)
         // =====================================================================
         ind!("ncbeilq027s", "US Corporate Equities", SourceType::Fred, Category::Internal,
@@ -507,9 +543,11 @@ impl Registry {
             
             "cp_bill_spread" => Some(Box::new(CommercialPaperSpread)),
             "sofr_spread" => Some(Box::new(SofrSpread)),
+            
+            "rule_of_20" => Some(Box::new(RuleOf20)),
+            "vix_term_structure" => Some(Box::new(VixTermStructure)),
+            "ndx_spx_ratio" => Some(Box::new(NdxSpxRatio)),
 
-            // TODO: Implement later
-            // "rule_of_20" => Some(Box::new(RuleOf20)),
             // "equity_risk_premium" => Some(Box::new(EquityRiskPremium)),
             
             _ => None,
@@ -525,7 +563,9 @@ impl Registry {
         RegistryStats {
             total,
             visible,
+
             fred: by_source(SourceType::Fred),
+            yahoo: by_source(SourceType::Yahoo),
             tiingo: by_source(SourceType::Tiingo),
             // upbit: by_source(SourceType::Upbit),
             binance: by_source(SourceType::Binance),
@@ -541,6 +581,7 @@ pub struct RegistryStats {
     pub total: usize,
     pub visible: usize,
     pub fred: usize,
+    pub yahoo: usize,
     pub tiingo: usize,
     // pub upbit: usize,
     pub binance: usize,

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { RefreshCw, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "./components/layout/AppLayout";
+import { AlertDialog } from "./components/ui/AlertDialog";
 import { IndicatorsView } from "./components/views/IndicatorsView";
 import { MarketMapView } from "./components/views/MarketMapView";
 import { DataLabView } from "./components/views/DataLabView";
@@ -20,6 +21,20 @@ function App() {
   const [selectedIndicatorSlug, setSelectedIndicatorSlug] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Custom Alert Dialog State
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant: "info" | "danger" | "success" | "warning";
+  }>({ isOpen: false, title: "", description: "", variant: "info" });
+
+  const showAlert = (title: string, description: string, variant: "info" | "danger" | "success" | "warning" = "warning") => {
+    setAlertDialog({ isOpen: true, title, description, variant });
+  };
+
+  const closeAlert = () => setAlertDialog(prev => ({ ...prev, isOpen: false }));
 
   // Load API Key on startup
   useEffect(() => {
@@ -60,7 +75,7 @@ function App() {
           <button
             onClick={async () => {
               if (!apiKey) {
-                alert("Please set your FRED API Key in Settings first!");
+                showAlert("API Key Required", "Please set your FRED API Key in Settings first.", "warning");
                 setActiveTab("settings");
                 return;
               }
@@ -92,7 +107,7 @@ function App() {
                 // Notify all views to refresh data
                 await import("@tauri-apps/api/event").then(mod => mod.emit('indicators-updated'));
               } catch (e) {
-                alert("Sync failed: " + e);
+                showAlert("Sync Failed", String(e), "danger");
               } finally {
                 if (btn) btn.classList.remove("animate-spin");
                 if (btnText) btnText.innerText = "Sync Data";
@@ -126,6 +141,18 @@ function App() {
         <SettingsView />
       )}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+
+      {/* Custom Alert Dialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        title={alertDialog.title}
+        description={alertDialog.description}
+        variant={alertDialog.variant}
+        confirmText="OK"
+        cancelText="Cancel"
+        onConfirm={closeAlert}
+        onCancel={closeAlert}
+      />
     </AppLayout>
   );
 }

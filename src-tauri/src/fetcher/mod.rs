@@ -3,7 +3,7 @@ use anyhow::Result;
 use crate::models::DataPoint;
 
 pub mod fred;
-// pub mod yahoo; // Removed as part of BYOK migration
+pub mod yahoo;
 pub mod tiingo;
 // pub mod upbit; // Removed as part of Crypto Cleanup
 pub mod binance;
