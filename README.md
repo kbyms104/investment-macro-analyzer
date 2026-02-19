@@ -2,6 +2,8 @@
 
 > A free, open-source desktop application for macroeconomic analysis and market risk assessment. Built with Rust + Tauri v2 + React 19.
 
+🇺🇸 English | [🇰🇷 한국어](./README_KO.md)
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Rust](https://img.shields.io/badge/rust-1.75+-orange.svg)
 ![Tauri](https://img.shields.io/badge/tauri-v2-blue.svg)
@@ -127,7 +129,7 @@ This tool auto-detects the database location (AppData or local dev path) and pro
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/investment-macro-analyzer.git
+git clone https://github.com/kbyms104/investment-macro-analyzer.git
 cd investment-macro-analyzer
 
 # Install frontend dependencies
