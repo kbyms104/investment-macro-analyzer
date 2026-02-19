@@ -1,10 +1,10 @@
-use tauri::{AppHandle, Manager, Emitter};
+use tauri::{AppHandle, Emitter};
 use tokio_cron_scheduler::{Job, JobScheduler};
 use sqlx::{SqlitePool, Row};
 use std::time::Duration;
 use crate::core::orchestrator;
 use crate::db;
-use crate::fetcher::DataSource;
+
 
 pub async fn init(pool: SqlitePool, app_handle: AppHandle) -> Result<JobScheduler, anyhow::Error> {
     let sched = JobScheduler::new().await?;

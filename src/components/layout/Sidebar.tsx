@@ -1,4 +1,4 @@
-import { LayoutDashboard, Activity, Database, Settings, Zap, LayoutGrid, GitCompare, BarChart3, RotateCw, Bot } from "lucide-react";
+import { LayoutDashboard, Activity, Database, Settings, Zap, LayoutGrid, GitCompare, BarChart3, RotateCw, Bot, CalendarDays } from "lucide-react";
 
 interface SidebarProps {
     activeTab: string;
@@ -30,6 +30,12 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                     label="Market Cycle"
                     active={activeTab === "market_cycle"}
                     onClick={() => onTabChange("market_cycle")}
+                />
+                <SidebarItem
+                    icon={<CalendarDays size={20} />}
+                    label="Market Calendar"
+                    active={activeTab === "market_calendar"}
+                    onClick={() => onTabChange("market_calendar")}
                 />
                 <SidebarItem
                     icon={<BarChart3 size={20} />}

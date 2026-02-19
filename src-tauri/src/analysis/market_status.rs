@@ -1,6 +1,6 @@
 use serde::Serialize;
 use sqlx::{SqlitePool, Row};
-use crate::models::DataPoint;
+
 
 #[derive(Debug, Serialize)]
 pub struct MarketStatus {
@@ -24,8 +24,17 @@ use tauri::State;
 
 
 
+/// Internal version without Tauri State wrapper (for use by signals.rs, alerts.rs etc.)
+pub async fn calculate_market_status_internal(pool: &SqlitePool) -> Result<MarketStatus, String> {
+    calculate_market_status_impl(pool).await
+}
+
 #[tauri::command]
 pub async fn calculate_market_status(pool: State<'_, SqlitePool>) -> Result<MarketStatus, String> {
+    calculate_market_status_impl(&pool).await
+}
+
+async fn calculate_market_status_impl(pool: &SqlitePool) -> Result<MarketStatus, String> {
     let mut score = 0;
     let mut drivers = Vec::new();
 

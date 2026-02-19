@@ -2,7 +2,7 @@ use crate::models::DataPoint;
 use super::DataSource;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc, TimeZone};
+use chrono::{Utc, TimeZone};
 use yahoo_finance_api as yahoo;
 use time::OffsetDateTime;
 

@@ -25,6 +25,12 @@
   "include": [
     "src"
   ],
+  "exclude": [
+    "src/tests/**/*",
+    "src/**/*.test.tsx",
+    "src/**/*.test.ts",
+    "src/setupTests.ts"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"

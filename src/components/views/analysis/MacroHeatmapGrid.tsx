@@ -111,7 +111,7 @@ export function MacroHeatmapGrid({ items, loading = false }: MacroHeatmapGridPro
                                         )}
                                     </motion.div>
                                 </TooltipTrigger>
-                                <TooltipContent sideOffset={5} className="z-[100] bg-zinc-950/90 backdrop-blur-md border-zinc-800 text-white shadow-2xl">
+                                <TooltipContent className="z-[100] bg-zinc-950/90 backdrop-blur-md border-zinc-800 text-white shadow-2xl">
                                     <div className="text-xs space-y-1">
                                         <p className="font-bold text-sm">{item.name}</p>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-zinc-400">

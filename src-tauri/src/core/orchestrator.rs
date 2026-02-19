@@ -7,7 +7,7 @@ use crate::fetcher::tiingo::TiingoFetcher;
 use crate::fetcher::binance::BinanceFetcher;
 use crate::fetcher::worldbank::WorldBankFetcher; // New
 use crate::fetcher::eia::EiaFetcher;             // New
-use tauri::Emitter;
+// use tauri::Emitter;
 use crate::fetcher::alternative::AlternativeFetcher;
 use crate::fetcher::DataSource;
 use crate::indicators::registry::{Registry, SourceType};

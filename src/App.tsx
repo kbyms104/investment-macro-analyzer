@@ -13,7 +13,13 @@ import { DashboardView } from "./components/views/DashboardView";
 import { MarketCycleView } from "./components/views/MarketCycleView";
 import { SettingsView } from "./components/views/SettingsView";
 import { AIReportView } from "./components/views/AIReportView";
+import { MarketCalendarView } from "./components/views/MarketCalendarView";
 import { SettingsModal } from "./components/modals/SettingsModal";
+import LegalConsentModal from "./components/LegalConsentModal";
+
+
+// INCREASE THIS VERSION TO FORCE ALL USERS TO RE-ACCEPT TERMS
+const REQUIRED_TOS_VERSION = 'v3.0';
 
 function App() {
   const { t } = useTranslation();
@@ -21,6 +27,8 @@ function App() {
   const [selectedIndicatorSlug, setSelectedIndicatorSlug] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean | null>(null); // null = loading
+
 
   // Custom Alert Dialog State
   const [alertDialog, setAlertDialog] = useState<{
@@ -36,15 +44,30 @@ function App() {
 
   const closeAlert = () => setAlertDialog(prev => ({ ...prev, isOpen: false }));
 
-  // Load API Key on startup
+  // Load API Key, TOS Status, & License on startup
   useEffect(() => {
-    invoke("get_api_key")
-      .then((key) => {
-        if (typeof key === 'string' && key) {
-          setApiKey(key);
-        }
-      })
-      .catch((err) => console.error("Failed to load API key:", err));
+    const init = async () => {
+      try {
+        // 1. Get API Key
+        const key = await invoke("get_api_key");
+        if (typeof key === 'string' && key) setApiKey(key);
+
+        // 2. Check TOS Status
+        const tosVersion = await invoke("check_tos_status");
+        console.log("TOS Status:", tosVersion, "Required:", REQUIRED_TOS_VERSION);
+        setHasAcceptedTerms(tosVersion === REQUIRED_TOS_VERSION);
+
+
+
+      } catch (err) {
+        console.error("Initialization failed:", err);
+        // Fallback to safe defaults (show modals)
+        if (hasAcceptedTerms === null) setHasAcceptedTerms(false);
+
+      }
+    };
+
+    init();
   }, []);
 
   const handleNavigate = (tab: string, slug?: string) => {
@@ -53,6 +76,25 @@ function App() {
       setSelectedIndicatorSlug(slug);
     }
   };
+
+  // 1. TOS Check First
+  if (hasAcceptedTerms === false) {
+    return <LegalConsentModal
+      onAgreed={() => setHasAcceptedTerms(true)}
+      tosVersion={REQUIRED_TOS_VERSION}
+    />;
+  }
+
+
+
+  // Optional: Distinct loading state (while checking TOS/License)
+  if (hasAcceptedTerms === null) {
+    return (
+      <div className="h-screen w-screen bg-black flex items-center justify-center text-white">
+        <span className="animate-pulse">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <AppLayout activeTab={activeTab} onTabChange={setActiveTab}>
@@ -131,6 +173,8 @@ function App() {
         <MarketCycleView />
       ) : activeTab === "market_map" ? (
         <MarketMapView />
+      ) : activeTab === "market_calendar" ? (
+        <MarketCalendarView />
       ) : activeTab === "data-ingestion" ? (
         <DataLabView />
       ) : activeTab === "correlation" ? (

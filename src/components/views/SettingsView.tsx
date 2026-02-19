@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Database, History, DownloadCloud, AlertTriangle, CheckCircle, Bot, Zap } from "lucide-react";
+import { Database, History, DownloadCloud, AlertTriangle, CheckCircle, Bot, Zap, ShieldAlert } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import { AlertDialog } from "../ui/AlertDialog";
+import LegalConsentModal from "../LegalConsentModal";
 
 interface SyncProgress {
     current: number;
@@ -32,6 +33,7 @@ export function SettingsView() {
     const [progress, setProgress] = useState<SyncProgress | null>(null);
     const [syncResult, setSyncResult] = useState<string | null>(null);
     const [apiUsage, setApiUsage] = useState<{ hour: number, day: number } | null>(null);
+    const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
 
     // LLM Settings State
     const [llmSettings, setLlmSettings] = useState<LLMSettings>({
@@ -598,6 +600,34 @@ export function SettingsView() {
                     <p>Developer: Antigravity Agent</p>
                 </div>
             </GlassCard>
+
+            {/* Legal & Compliance */}
+            <GlassCard className="p-6">
+                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <ShieldAlert size={20} className="text-red-500" />
+                    Legal & Compliance
+                </h3>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="font-bold text-foreground">Terms of Use & Risk Disclosure</div>
+                        <div className="text-xs text-muted-foreground">AGREED (Version 2.0)</div>
+                    </div>
+                    <button
+                        onClick={() => setIsLegalModalOpen(true)}
+                        className="px-4 py-2 bg-secondary hover:bg-secondary/80 border border-border rounded-lg text-sm transition-colors"
+                    >
+                        View Agreement
+                    </button>
+                </div>
+            </GlassCard>
+
+            {isLegalModalOpen && (
+                <LegalConsentModal
+                    onAgreed={() => { }} // No-op for review mode
+                    variant="review"
+                    onClose={() => setIsLegalModalOpen(false)}
+                />
+            )}
 
             {/* Custom Alert Dialog */}
             <AlertDialog

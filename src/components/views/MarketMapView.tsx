@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { GlassCard } from "../ui/GlassCard";
 import { invoke } from "@tauri-apps/api/core";
-import { Maximize2, RefreshCw, LayoutGrid, Map, Play, Pause, StepBack, StepForward } from "lucide-react"; // Import new icons
+import { Maximize2, RefreshCw, LayoutGrid, Map, Play, Pause } from "lucide-react"; // Import new icons
 import { MarketTreemap } from "../charts/MarketTreemap"; // Import new component
-import { format, subDays, addDays } from "date-fns";
+import { format, addDays } from "date-fns";
 
 // Data Types
 interface MapItem {

@@ -40,3 +40,10 @@ inspect_db.py
 check_db.sql
 *.pyc
 __pycache__/
+
+# Data files (user-generated)
+docs/*.csv
+
+# AI/Agent config
+.gemini/
+.antigravityignore

@@ -60,6 +60,8 @@ pub struct ReferencedIndicator {
     pub value: f64,
     pub z_score: f64,
     pub sparkline: Vec<f64>,
+    #[serde(default)]
+    pub tag: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

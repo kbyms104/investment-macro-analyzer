@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { GlassCard } from "./GlassCard";
-import { AlertTriangle, Info, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, Info, CheckCircle } from "lucide-react";
 
 interface AlertDialogProps {
     isOpen: boolean;

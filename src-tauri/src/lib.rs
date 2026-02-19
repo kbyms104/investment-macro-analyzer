@@ -2,10 +2,12 @@ use tauri::State;
 use sqlx::SqlitePool;
 use analysis::technicals::TechnicalSignals;
 
+use crate::fetcher::DataSource;
+
 #[tauri::command]
 async fn fetch_fred_data(pool: State<'_, SqlitePool>, api_key: String, series_id: String) -> Result<Vec<models::DataPoint>, String> {
     let fetcher = FredFetcher::new(api_key, false);
-    let data = fetcher.fetch_data(&series_id).await.map_err(|e| e.to_string())?;
+    let data = fetcher.fetch_data(&series_id).await.map_err(|e: anyhow::Error| e.to_string())?;
     
     // Save to DB
     db::save_historical_data(&pool, &series_id, data.clone(), "FRED", "Macro")
@@ -92,6 +94,20 @@ async fn get_provider_api_key(pool: State<'_, SqlitePool>, provider: String) -> 
 }
 
 #[tauri::command]
+async fn accept_tos(pool: State<'_, SqlitePool>, version: String) -> Result<(), String> {
+    db::save_tos_status(&pool, &version, true)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn check_tos_status(pool: State<'_, SqlitePool>) -> Result<Option<String>, String> {
+    db::get_tos_status(&pool)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -142,6 +158,7 @@ pub struct SnapshotItem {
 #[tauri::command]
 async fn get_snapshot_by_date(pool: State<'_, SqlitePool>, date_str: String) -> Result<Vec<SnapshotItem>, String> {
     // Parse "YYYY-MM-DD"
+    use chrono::Datelike;
     let date = chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date format (YYYY-MM-DD): {}", e))?
         .and_hms_opt(23, 59, 59) // End of day
@@ -170,6 +187,7 @@ struct SyncProgress {
 
 #[tauri::command]
 async fn sync_all_history(pool: State<'_, SqlitePool>, api_key: String, app_handle: tauri::AppHandle) -> Result<String, String> {
+    use tauri::{AppHandle, Emitter};
     
     // Phase 1: Sync Base Indicators
     // This fetches data from FRED, Yahoo, Tiingo, Binance, etc.
@@ -200,12 +218,14 @@ pub mod analysis;
 pub mod llm;
 pub mod commands;
 
+
+
 use tauri::Manager;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
 };
-use crate::fetcher::DataSource;
+// use anyhow::Result;
 use crate::fetcher::fred::FredFetcher;
 
 // Yahoo search removed
@@ -402,8 +422,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet, 
             fetch_fred_data, 
-            fetch_fred_data, 
-            // fetch_yahoo_data, 
             calculate_indicator, 
             save_api_key, 
             get_api_key,
@@ -412,13 +430,11 @@ pub fn run() {
             save_provider_api_key,
             get_provider_api_key,
             get_indicator_history,
-            // search_yahoo_symbol,
             get_indicators_list,
             analysis::calculate_correlation,
             analysis::calculate_correlation_matrix,
             analysis::calculate_ranked_correlations,
             analysis::get_multi_chart_data,
-            analysis::find_optimal_lag,
             analysis::find_optimal_lag,
             analysis::market_status::calculate_market_status,
             analysis::market_status::get_risk_score_history,
@@ -426,19 +442,22 @@ pub fn run() {
             analysis::get_market_regime,
             analysis::get_macro_heatmap,
             analysis::get_rolling_correlation,
+            analysis::get_active_signals,
             sync_all_history,
             get_market_insights,
             generate_ai_report,
             get_llm_settings,
-            get_llm_settings,
             save_llm_settings,
             get_ai_report_history,
             get_ai_report,
-            save_llm_settings,
             test_llm_connection,
             get_technical_signals,
             get_tiingo_usage,
-            commands::yahoo_test::test_yahoo_connection,
+            check_tos_status,
+            accept_tos,
+            commands::calendar::sync_finnhub_calendar,
+            commands::calendar::get_market_calendar,
+            commands::calendar::get_earnings_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

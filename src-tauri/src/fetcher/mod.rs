@@ -10,6 +10,7 @@ pub mod cnn;
 pub mod binance;
 pub mod worldbank; // New
 pub mod eia; // New
+pub mod calendar; // New
 pub mod alternative;
 
 #[async_trait]

@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Bot, RefreshCw, TrendingUp, TrendingDown, Minus, AlertTriangle, ExternalLink, ChevronDown, Check, Calendar, Clock, History } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 import ReactMarkdown from 'react-markdown';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
+
 
 interface ReferencedIndicator {
     slug: string;
@@ -11,6 +11,7 @@ interface ReferencedIndicator {
     value: number;
     z_score: number;
     sparkline: number[];
+    tag?: string; // Optional for backward compatibility
 }
 
 interface AIReport {
@@ -376,16 +377,54 @@ export function AIReportView() {
                 {/* Sidebar - Referenced Indicators (Only show if report is loaded) */}
                 {report && (
                     <div className="w-72 flex-shrink-0 overflow-y-auto pr-2 custom-scrollbar">
-                        <GlassCard className="p-4 sticky top-0">
+                        <GlassCard className="p-4 sticky top-0 max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
                             <h3 className="text-sm font-bold text-muted-foreground mb-4 flex items-center gap-2">
                                 <TrendingUp className="w-4 h-4" />
                                 Key Indicators
                             </h3>
 
-                            <div className="space-y-3">
-                                {report.referenced_indicators.map(ind => (
-                                    <IndicatorCard key={ind.slug} indicator={ind} />
-                                ))}
+                            <div className="space-y-4">
+                                {/* Group by Tag */}
+                                {(() => {
+                                    const groups: Record<string, ReferencedIndicator[]> = {};
+                                    report.referenced_indicators.forEach(ind => {
+                                        const tag = ind.tag || (ind.z_score > 1.5 || ind.z_score < -1.5 ? 'Anomaly' : 'Core');
+                                        if (!groups[tag]) groups[tag] = [];
+                                        groups[tag].push(ind);
+                                    });
+
+                                    // Order: Sentiment -> Anomaly -> Core
+                                    const order = ['Sentiment', 'Anomaly', 'Core'];
+                                    const sortedKeys = Object.keys(groups).sort((a, b) => {
+                                        const indexA = order.indexOf(a);
+                                        const indexB = order.indexOf(b);
+                                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                        if (indexA !== -1) return -1;
+                                        if (indexB !== -1) return 1;
+                                        return a.localeCompare(b);
+                                    });
+
+                                    return sortedKeys.map(tag => (
+                                        <details key={tag} className="group" open={tag !== 'Core'}>
+                                            <summary className="flex items-center justify-between cursor-pointer list-none mb-2 select-none group-open:mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${tag === 'Anomaly' ? 'bg-red-400' :
+                                                            tag === 'Sentiment' ? 'bg-amber-400' : 'bg-blue-400'
+                                                        }`} />
+                                                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                                                        {tag} ({groups[tag].length})
+                                                    </span>
+                                                </div>
+                                                <ChevronDown className="w-3 h-3 text-zinc-600 transition-transform group-open:rotate-180" />
+                                            </summary>
+                                            <div className="space-y-3 pl-2 border-l border-zinc-800/50">
+                                                {groups[tag].map(ind => (
+                                                    <IndicatorCard key={ind.slug} indicator={ind} />
+                                                ))}
+                                            </div>
+                                        </details>
+                                    ));
+                                })()}
                             </div>
 
                             {/* Link to Settings */}

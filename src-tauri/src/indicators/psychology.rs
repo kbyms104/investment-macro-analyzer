@@ -2,7 +2,7 @@ use crate::models::DataPoint;
 use crate::indicators::CalculatedIndicator;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use chrono::{Datelike, Utc};
+use chrono::Datelike;
 
 // ============================================================================
 // Rule of 20: P/E Ratio + CPI YoY (Valuation)

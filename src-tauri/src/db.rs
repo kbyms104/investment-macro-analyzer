@@ -120,6 +120,38 @@ pub async fn update_indicator_status(
     Ok(())
 }
 
+pub async fn save_tos_status(pool: &SqlitePool, version: &str, accepted: bool) -> Result<()> {
+    let accepted_str = if accepted { "true" } else { "false" };
+    // Reuse the existing 'settings' table (key, value)
+    // Key: "TOS_ACCEPTED_VERSION" -> "v2"
+    // Key: "TOS_ACCEPTED_TIMESTAMP" -> ISO string
+    
+    if accepted {
+        let now = chrono::Utc::now().to_rfc3339();
+        
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('TOS_ACCEPTED_VERSION', $1) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value")
+            .bind(version)
+            .execute(pool)
+            .await?;
+            
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('TOS_ACCEPTED_TIMESTAMP', $1) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value")
+            .bind(now)
+            .execute(pool)
+            .await?;
+    }
+
+    Ok(())
+}
+
+pub async fn get_tos_status(pool: &SqlitePool) -> Result<Option<String>> {
+    let row = sqlx::query("SELECT value FROM settings WHERE key = 'TOS_ACCEPTED_VERSION'")
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(row.map(|r| r.get("value")))
+}
+
+
 pub async fn get_stale_indicators(pool: &SqlitePool) -> Result<Vec<(String, String)>> {
     // 1. Fetch metadata for all indicators
     let records = sqlx::query(
@@ -412,5 +444,154 @@ pub async fn get_api_usage(pool: &SqlitePool, key: &str) -> Result<i64> {
         Ok(val_str.parse().unwrap_or(0))
     } else {
         Ok(0)
+    }
+}
+
+// =====================================================================
+// MARKET CALENDAR (Earnings & IPO)
+// =====================================================================
+
+#[derive(Debug, serde::Serialize)]
+pub struct MarketEventRecord {
+    pub id: String,
+    pub event_type: String,
+    pub symbol: String,
+    pub event_date: String,
+    pub event_time: Option<String>,
+    pub data_json: String,
+    pub source: String,
+}
+
+pub async fn save_market_event(pool: &SqlitePool, record: MarketEventRecord) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO market_events (id, event_type, symbol, event_date, event_time, data_json, source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE SET
+            event_time = EXCLUDED.event_time,
+            data_json = EXCLUDED.data_json,
+            source = EXCLUDED.source"
+    )
+    .bind(record.id)
+    .bind(record.event_type)
+    .bind(record.symbol)
+    .bind(record.event_date)
+    .bind(record.event_time)
+    .bind(record.data_json)
+    .bind(record.source)
+    .execute(pool)
+    .await?;
+    
+    Ok(())
+}
+
+pub async fn get_market_events(pool: &SqlitePool, from_date: &str, to_date: &str) -> Result<Vec<MarketEventRecord>> {
+    let rows = sqlx::query(
+        "SELECT id, event_type, symbol, event_date, event_time, data_json, source
+         FROM market_events
+         WHERE event_date BETWEEN $1 AND $2
+         ORDER BY event_date ASC, symbol ASC"
+    )
+    .bind(from_date)
+    .bind(to_date)
+    .fetch_all(pool)
+    .await?;
+
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(MarketEventRecord {
+            id: row.try_get("id")?,
+            event_type: row.try_get("event_type")?,
+            symbol: row.try_get("symbol")?,
+            event_date: row.try_get("event_date")?,
+            event_time: row.try_get("event_time").ok(),
+            data_json: row.try_get("data_json")?,
+            source: row.try_get("source")?,
+        });
+    }
+
+    Ok(results)
+}
+
+// =====================================================================
+// EARNINGS HISTORY CACHE (4 Quarters)
+// =====================================================================
+
+pub struct EarningsHistoryRecord {
+    pub symbol: String,
+    pub data_json: String,
+    pub last_updated: String,
+}
+
+pub async fn save_earnings_history(pool: &SqlitePool, symbol: &str, data_json: &str) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO earnings_history (symbol, data_json, last_updated)
+         VALUES ($1, $2, CURRENT_TIMESTAMP)
+         ON CONFLICT (symbol) DO UPDATE SET
+            data_json = EXCLUDED.data_json,
+            last_updated = CURRENT_TIMESTAMP"
+    )
+    .bind(symbol)
+    .bind(data_json)
+    .execute(pool)
+    .await?;
+    
+    Ok(())
+}
+
+pub async fn get_earnings_history(pool: &SqlitePool, symbol: &str) -> Result<Option<EarningsHistoryRecord>> {
+    let row = sqlx::query(
+        "SELECT symbol, data_json, last_updated
+         FROM earnings_history
+         WHERE symbol = $1"
+    )
+    .bind(symbol)
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(r) = row {
+        Ok(Some(EarningsHistoryRecord {
+            symbol: r.try_get("symbol")?,
+            data_json: r.try_get("data_json")?,
+            last_updated: r.try_get("last_updated")?,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+// =====================================================================
+// GUMROAD LICENSE KEY
+// =====================================================================
+
+pub async fn save_license_key(pool: &SqlitePool, key: &str, status: &str) -> Result<()> {
+    // 1. Save Key
+    sqlx::query("INSERT INTO settings (key, value) VALUES ('LICENSE_KEY', $1) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value")
+        .bind(key)
+        .execute(pool)
+        .await?;
+
+    // 2. Save Status
+    sqlx::query("INSERT INTO settings (key, value) VALUES ('LICENSE_STATUS', $1) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value")
+        .bind(status)
+        .execute(pool)
+        .await?;
+        
+    Ok(())
+}
+
+pub async fn get_license_key(pool: &SqlitePool) -> Result<Option<String>> {
+    let row = sqlx::query("SELECT value FROM settings WHERE key = 'LICENSE_KEY'")
+        .fetch_optional(pool)
+        .await?;
+
+    if let Some(r) = row {
+        let key: String = r.try_get("value")?;
+        if key.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(key))
+        }
+    } else {
+        Ok(None)
     }
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Globe, Moon, Sun, Info, ExternalLink, Code2, ShieldCheck } from "lucide-react";
+import { X, Globe, Moon, Sun, Info, ExternalLink, Code2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../theme-provider";
 
@@ -11,7 +11,7 @@ interface SettingsModalProps {
 type Tab = "general" | "about";
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-    const { t, i18n } = useTranslation();
+    const { i18n } = useTranslation();
     const { theme, setTheme } = useTheme();
     const [activeTab, setActiveTab] = useState<Tab>("general");
 
@@ -122,7 +122,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 {/* Open Source Licenses */}
                                 <div className="space-y-3">
                                     <h4 className="text-sm font-bold flex items-center gap-2">
-                                        <ShieldCheck size={16} className="text-emerald-500" />
+                                        <Info size={16} className="text-emerald-500" />
                                         Open Source Attribution
                                     </h4>
                                     <div className="space-y-2">

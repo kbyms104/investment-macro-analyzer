@@ -48,6 +48,9 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
     const [yieldGapData, setYieldGapData] = useState<any[]>([]);
     const [spxData, setSpxData] = useState<any[]>([]);
     const [vixData, setVixData] = useState<any[]>([]);
+    // Dedicated state for Market Performance chart (period-controlled)
+    const [chartSpxData, setChartSpxData] = useState<any[]>([]);
+    const [chartVixData, setChartVixData] = useState<any[]>([]);
     const [showMethodology, setShowMethodology] = useState(false);
 
     const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>('1Y');
@@ -69,39 +72,26 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
             .catch(console.error);
     }, []);
 
+    // One-time fetch: Market Status, Buffett, Yield Curve, Tech Signals (mount only)
     useEffect(() => {
-        const fetchAllData = async () => {
+        const fetchCoreData = async () => {
             try {
-                // 1. Fetch Market Status (Engine)
                 const statusRes = await invoke<MarketStatus>("calculate_market_status");
                 setStatus(statusRes);
 
-                // 2. Fetch Chart Data
-                const periodToDays = (p: ChartPeriod): number => {
-                    switch (p) {
-                        case '1M': return 30;
-                        case '3M': return 90;
-                        case '6M': return 180;
-                        case '1Y': return 365;
-                        case 'ALL': return 3650; // 10 years
-                    }
-                };
-
-                const [buffettRes, yieldRes, spxRes, vixRes, riskHistoryRes] = await Promise.all([
+                const [buffettRes, yieldRes, spxRes, vixRes] = await Promise.all([
                     invoke<DataPoint[]>("get_indicator_history", { slug: "buffett_indicator", range: "5Y" }),
                     invoke<DataPoint[]>("get_indicator_history", { slug: "yield_curve_10y_2y", range: "1Y" }),
                     invoke<DataPoint[]>("get_indicator_history", { slug: "spx", range: "5Y" }),
                     invoke<DataPoint[]>("get_indicator_history", { slug: "vix", range: "1Y" }),
-                    invoke<RiskScorePoint[]>("get_risk_score_history", { days: periodToDays(selectedPeriod) })
                 ]);
 
                 if (buffettRes) setBuffettData(buffettRes);
                 if (yieldRes) setYieldGapData(yieldRes);
                 if (spxRes) setSpxData(spxRes);
                 if (vixRes) setVixData(vixRes);
-                if (riskHistoryRes) setRiskTrendData(riskHistoryRes);
 
-                // 3. Fetch Technical Signals for Key Assets
+                // Fetch Technical Signals for Key Assets
                 const keyAssets = [
                     { slug: "spx", name: "S&P 500" },
                     { slug: "binance_btc_usdt", name: "Bitcoin (Binance)" },
@@ -112,9 +102,7 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
                 const signals = await Promise.all(
                     keyAssets.map(async (asset) => {
                         try {
-                            // Note: In real app, we should probably have a 'get_multiple_technical_signals' to reduce calls
                             const sig = await invoke<TechnicalSignal>("get_technical_signals", { slug: asset.slug });
-                            // sig comes with slug, we might want to attach name or rely on slug
                             return sig;
                         } catch (e) {
                             console.error(`Failed to fetch signal for ${asset.slug}`, e);
@@ -130,7 +118,29 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
             }
         };
 
-        fetchAllData();
+        fetchCoreData();
+    }, []);
+
+    // Market Performance chart: re-fetches SPX/VIX when period buttons change
+    useEffect(() => {
+        const periodToRange = (p: ChartPeriod): string => {
+            switch (p) {
+                case '1M': return '1M';
+                case '3M': return '3M';
+                case '6M': return '6M';
+                case '1Y': return '1Y';
+                case 'ALL': return '5Y';
+            }
+        };
+        const chartRange = periodToRange(selectedPeriod);
+
+        Promise.all([
+            invoke<DataPoint[]>("get_indicator_history", { slug: "spx", range: chartRange }),
+            invoke<DataPoint[]>("get_indicator_history", { slug: "vix", range: chartRange }),
+        ]).then(([spxRes, vixRes]) => {
+            if (spxRes) setChartSpxData(spxRes);
+            if (vixRes) setChartVixData(vixRes);
+        }).catch(console.error);
     }, [selectedPeriod]);
 
     const lastBuffett = buffettData[buffettData.length - 1]?.value.toFixed(1) || "--";
@@ -366,13 +376,18 @@ export function OverviewView({ onNavigate }: OverviewViewProps) {
                         <AdvancedAnalyticsChart
                             title=""
                             data={(() => {
-                                // Align by timestamp to ensure correct overlay even if data lengths differ
-                                const vixMap = new Map(vixData.map(d => [d.timestamp, d.value]));
+                                // Normalize timestamps to date-only (YYYY-MM-DD) for cross-source matching
+                                // FRED (VIX) and Yahoo (SPX) return different timestamp formats
+                                const toDateKey = (ts: string) => {
+                                    try { return new Date(ts).toISOString().split('T')[0]; }
+                                    catch { return ts; }
+                                };
+                                const vixMap = new Map(chartVixData.map(d => [toDateKey(d.timestamp), d.value]));
 
-                                return spxData.map(s => ({
+                                return chartSpxData.map(s => ({
                                     timestamp: s.timestamp,
                                     spx: s.value,
-                                    vix: vixMap.get(s.timestamp) || null,
+                                    vix: vixMap.get(toDateKey(s.timestamp)) ?? null,
                                 }));
                             })()}
                             series={[

@@ -1,9 +1,9 @@
-pub mod technical;
 pub mod market_status;
 pub mod statistics;
 pub mod regime;
 pub mod insight;
 pub mod technicals;
+pub mod signals;
 
 use tauri::State;
 use sqlx::SqlitePool;
@@ -567,6 +567,11 @@ pub async fn get_market_regime(pool: State<'_, SqlitePool>) -> Result<regime::Re
 #[tauri::command]
 pub async fn get_macro_heatmap(pool: State<'_, SqlitePool>) -> Result<Vec<regime::HeatmapItem>, String> {
     regime::get_anomaly_heatmap(&pool).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_active_signals(pool: State<'_, SqlitePool>) -> Result<signals::SignalReport, String> {
+    signals::generate_signals(&pool).await
 }
 #[tauri::command]
 pub async fn get_rolling_correlation(
